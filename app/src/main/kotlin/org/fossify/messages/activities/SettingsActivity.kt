@@ -32,6 +32,7 @@ import org.fossify.commons.models.RadioItem
 import org.fossify.messages.R
 import org.fossify.messages.databinding.ActivitySettingsBinding
 import org.fossify.messages.dialogs.ExportMessagesDialog
+import org.fossify.messages.extensions.archiveUnknownConversations
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.emptyMessagesRecycleBin
 import org.fossify.messages.extensions.messagesDB
@@ -105,6 +106,7 @@ class SettingsActivity : SimpleActivity() {
         setupManageBlockedKeywords()
         setupChangeDateTimeFormat()
         setupFontSize()
+        setupSkipDefaultAppRequirement()
         setupShowCharacterCounter()
         setupUseSimpleCharacters()
         setupSendOnEnter()
@@ -112,6 +114,8 @@ class SettingsActivity : SimpleActivity() {
         setupSendLongMessageAsMMS()
         setupGroupMessageAsMMS()
         setupKeepConversationsArchived()
+        setupArchiveUnknownContacts()
+        setupSilentArchivedContacts()
         setupLockScreenVisibility()
         setupMMSFileSizeLimit()
         setupUseRecycleBin()
@@ -300,6 +304,39 @@ class SettingsActivity : SimpleActivity() {
         settingsKeepConversationsArchivedHolder.setOnClickListener {
             settingsKeepConversationsArchived.toggle()
             config.keepConversationsArchived = settingsKeepConversationsArchived.isChecked
+        }
+    }
+
+    private fun setupArchiveUnknownContacts() = binding.apply {
+        settingsArchiveUnknownContactsHolder.beVisibleIf(config.isArchiveAvailable)
+        settingsArchiveUnknownContacts.isChecked = config.archiveUnknownContacts
+        settingsArchiveUnknownContactsHolder.setOnClickListener {
+            settingsArchiveUnknownContacts.toggle()
+            config.archiveUnknownContacts = settingsArchiveUnknownContacts.isChecked
+
+            if (config.archiveUnknownContacts) {
+                ensureBackgroundThread {
+                    archiveUnknownConversations()
+                    refreshConversations()
+                }
+            }
+        }
+    }
+
+    private fun setupSilentArchivedContacts() = binding.apply {
+        settingsSilentArchivedContactsHolder.beVisibleIf(config.isArchiveAvailable)
+        settingsSilentArchivedContacts.isChecked = config.silentArchivedContacts
+        settingsSilentArchivedContactsHolder.setOnClickListener {
+            settingsSilentArchivedContacts.toggle()
+            config.silentArchivedContacts = settingsSilentArchivedContacts.isChecked
+        }
+    }
+
+    private fun setupSkipDefaultAppRequirement() = binding.apply {
+        settingsSkipDefaultAppRequirement.isChecked = config.skipDefaultAppRequirement
+        settingsSkipDefaultAppRequirementHolder.setOnClickListener {
+            settingsSkipDefaultAppRequirement.toggle()
+            config.skipDefaultAppRequirement = settingsSkipDefaultAppRequirement.isChecked
         }
     }
 

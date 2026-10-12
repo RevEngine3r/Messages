@@ -68,6 +68,8 @@
     <string name="archive_emptied_successfully">The archive has been emptied successfully</string>
     <string name="empty_archive_confirmation">Are you sure you want to empty the archive? All archived conversations will be permanently lost.</string>
     <string name="keep_conversations_archived">Keep conversations archived</string>
+    <string name="archive_unknown_contacts">Archive conversations from unknown contacts</string>
+    <string name="silent_archived_contacts">Silence all archived conversations</string>
     <!-- Recycle bin -->
     <string name="restore">Restore</string>
     <string name="restore_all_messages">Restore all messages</string>
@@ -109,6 +111,7 @@
     <string name="group_mms">Group MMS</string>
     <string name="separate_messages">Send separately</string>
     <string name="send_long_message_mms">Send long messages as MMS</string>
+    <string name="skip_default_app_requirement">Do not force the app to become the default messaging app</string>
     <!-- Export / Import -->
     <string name="messages">Messages</string>
     <string name="keywords">Keywords</string>

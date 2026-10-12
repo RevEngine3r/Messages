@@ -40,6 +40,7 @@ import org.fossify.commons.extensions.queryCursor
 import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.trimToComparableNumber
+import org.fossify.commons.helpers.ContactLookupResult
 import org.fossify.commons.helpers.DAY_SECONDS
 import org.fossify.commons.helpers.MONTH_SECONDS
 import org.fossify.commons.helpers.MyContactsContentProvider
@@ -973,6 +974,92 @@ fun Context.updateConversationArchivedStatus(threadId: Long, archived: Boolean) 
     }
 }
 
+fun Context.archiveUnknownConversations() {
+    if (!config.archiveUnknownContacts || !config.isArchiveAvailable) {
+        return
+    }
+
+    getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true).use { privateCursor ->
+        val conversations = try {
+            conversationsDB.getNonArchived()
+        } catch (_: Exception) {
+            return
+        }
+
+        // multiple conversations can share the same numbers, so do the contact lookups just once per number
+        val unknownStatuses = HashMap<String, Boolean>()
+        conversations
+            .filterNot { it.isScheduled }
+            .filter { isUnknownConversation(it, privateCursor, unknownStatuses) }
+            .forEach { runCatching { updateConversationArchivedStatus(it.threadId, true) } }
+    }
+}
+
+// archive conversations of senders which are not in the contacts, otherwise unarchive them if allowed
+fun Context.updateArchivedStatusAtIncomingMessage(threadId: Long, address: String) {
+    if (config.archiveUnknownContacts && config.isArchiveAvailable) {
+        val isUnknown = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)
+            .use { isUnknownContact(address, it) }
+
+        if (isUnknown) {
+            if (!isConversationArchived(threadId)) {
+                runCatching { updateConversationArchivedStatus(threadId, true) }
+            }
+            return
+        }
+    }
+
+    if (shouldUnarchive() && isConversationArchived(threadId)) {
+        runCatching { updateConversationArchivedStatus(threadId, false) }
+    }
+}
+
+fun Context.isConversationArchived(threadId: Long): Boolean {
+    return try {
+        conversationsDB.getConversationWithThreadId(threadId)?.isArchived == true
+    } catch (_: Exception) {
+        false
+    }
+}
+
+fun Context.isUnknownContact(address: String, privateCursor: Cursor?): Boolean {
+    // without the contacts permission every number would look unknown, so do not treat anything as unknown
+    if (address.isBlank() || !hasPermission(PERMISSION_READ_CONTACTS)) {
+        return false
+    }
+
+    return SimpleContactsHelper(this).existsSync(address, privateCursor) == ContactLookupResult.NotFound
+}
+
+fun Context.getConversationAddresses(conversation: Conversation): List<String> {
+    val participantNumbers = if (conversation.isGroupConversation && !conversation.isScheduled) {
+        try {
+            getThreadParticipants(conversation.threadId, HashMap()).getAddresses()
+        } catch (_: Exception) {
+            ArrayList<String>()
+        }
+    } else {
+        ArrayList<String>()
+    }
+
+    return (participantNumbers + conversation.phoneNumber).filter { it.isNotBlank() }.distinct()
+}
+
+fun Context.isUnknownConversation(
+    conversation: Conversation,
+    privateCursor: Cursor?,
+    unknownStatuses: MutableMap<String, Boolean> = HashMap(),
+): Boolean {
+    val addresses = getConversationAddresses(conversation)
+    return addresses.isNotEmpty() && addresses.all {
+        unknownStatuses.getOrPut(it) { isUnknownContact(it, privateCursor) }
+    }
+}
+
+fun Context.shouldSilenceArchivedConversation(threadId: Long): Boolean {
+    return config.silentArchivedContacts && isConversationArchived(threadId)
+}
+
 fun Context.deleteMessage(id: Long, isMMS: Boolean) {
     val uri = if (isMMS) Mms.CONTENT_URI else Sms.CONTENT_URI
     val selection = "${Sms._ID} = ?"
@@ -1068,6 +1155,11 @@ fun Context.showReceivedMessageNotification(
     threadId: Long,
     bitmap: Bitmap?,
 ) {
+    if (shouldSilenceArchivedConversation(threadId)) {
+        notificationManager.cancel(threadId.hashCode())
+        return
+    }
+
     Handler(Looper.getMainLooper()).post {
         notificationHelper.showMessageNotification(
             messageId = messageId,

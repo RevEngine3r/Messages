@@ -151,4 +151,19 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(KEEP_CONVERSATIONS_ARCHIVED, false)
         set(keepConversationsArchived) = prefs.edit()
             .putBoolean(KEEP_CONVERSATIONS_ARCHIVED, keepConversationsArchived).apply()
+
+    var archiveUnknownContacts: Boolean
+        get() = prefs.getBoolean(ARCHIVE_UNKNOWN_CONTACTS, false)
+        set(archiveUnknownContacts) = prefs.edit()
+            .putBoolean(ARCHIVE_UNKNOWN_CONTACTS, archiveUnknownContacts).apply()
+
+    var silentArchivedContacts: Boolean
+        get() = prefs.getBoolean(SILENT_ARCHIVED_CONTACTS, false)
+        set(silentArchivedContacts) = prefs.edit()
+            .putBoolean(SILENT_ARCHIVED_CONTACTS, silentArchivedContacts).apply()
+
+    var skipDefaultAppRequirement: Boolean
+        get() = prefs.getBoolean(SKIP_DEFAULT_APP_REQUIREMENT, false)
+        set(skipDefaultAppRequirement) = prefs.edit()
+            .putBoolean(SKIP_DEFAULT_APP_REQUIREMENT, skipDefaultAppRequirement).apply()
 }

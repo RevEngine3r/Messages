@@ -181,6 +181,21 @@
 
             </RelativeLayout>
 
+            <RelativeLayout
+                android:id="@+id/settings_skip_default_app_requirement_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_skip_default_app_requirement"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/skip_default_app_requirement" />
+
+            </RelativeLayout>
+
             <include
                 android:id="@+id/settings_general_settings_divider"
                 layout="@layout/divider" />
@@ -377,6 +392,36 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/keep_conversations_archived" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_archive_unknown_contacts_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_archive_unknown_contacts"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/archive_unknown_contacts" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_silent_archived_contacts_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_silent_archived_contacts"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/silent_archived_contacts" />
 
             </RelativeLayout>
 

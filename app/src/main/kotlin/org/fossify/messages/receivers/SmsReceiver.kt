@@ -19,9 +19,8 @@ import org.fossify.messages.extensions.getThreadId
 import org.fossify.messages.extensions.insertNewSMS
 import org.fossify.messages.extensions.insertOrUpdateConversation
 import org.fossify.messages.extensions.messagesDB
-import org.fossify.messages.extensions.shouldUnarchive
 import org.fossify.messages.extensions.showReceivedMessageNotification
-import org.fossify.messages.extensions.updateConversationArchivedStatus
+import org.fossify.messages.extensions.updateArchivedStatusAtIncomingMessage
 import org.fossify.messages.helpers.ReceiverUtils.isMessageFilteredOut
 import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.helpers.refreshMessages
@@ -137,9 +136,7 @@ class SmsReceiver : BroadcastReceiver() {
 
         context.messagesDB.insertOrUpdate(message)
 
-        if (context.shouldUnarchive()) {
-            context.updateConversationArchivedStatus(threadId, false)
-        }
+        context.updateArchivedStatusAtIncomingMessage(threadId = threadId, address = address)
 
         refreshMessages()
         refreshConversations()

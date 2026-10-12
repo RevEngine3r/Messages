@@ -54,6 +54,7 @@ import org.fossify.messages.R
 import org.fossify.messages.adapters.ConversationsAdapter
 import org.fossify.messages.adapters.SearchResultsAdapter
 import org.fossify.messages.databinding.ActivityMainBinding
+import org.fossify.messages.extensions.archiveUnknownConversations
 import org.fossify.messages.extensions.checkAndDeleteOldRecycleBinMessages
 import org.fossify.messages.extensions.clearAllMessagesIfNeeded
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
@@ -215,6 +216,13 @@ class MainActivity : SimpleActivity() {
     }
 
     private fun loadMessages() {
+        if (config.skipDefaultAppRequirement) {
+            // the app can be used even without holding the default SMS role, some things like
+            // receiving MMS or writing sent messages may not work
+            askPermissions()
+            return
+        }
+
         if (isQPlus()) {
             val roleManager = getSystemService(RoleManager::class.java)
             if (roleManager!!.isRoleAvailable(RoleManager.ROLE_SMS)) {
@@ -363,6 +371,8 @@ class MainActivity : SimpleActivity() {
                     insertOrUpdateConversation(conv)
                 }
             }
+
+            archiveUnknownConversations()
 
             val allConversations = conversationsDB.getNonArchived() as ArrayList<Conversation>
             runOnUiThread {

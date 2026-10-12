@@ -17,9 +17,8 @@ import org.fossify.messages.extensions.getMMS
 import org.fossify.messages.extensions.getLatestMMS
 import org.fossify.messages.extensions.getNameFromAddress
 import org.fossify.messages.extensions.insertOrUpdateConversation
-import org.fossify.messages.extensions.shouldUnarchive
 import org.fossify.messages.extensions.showReceivedMessageNotification
-import org.fossify.messages.extensions.updateConversationArchivedStatus
+import org.fossify.messages.extensions.updateArchivedStatusAtIncomingMessage
 import org.fossify.messages.helpers.ReceiverUtils.isMessageFilteredOut
 import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.helpers.refreshMessages
@@ -82,6 +81,14 @@ class MmsReceiver : MmsReceivedReceiver() {
             context.getNameFromAddress(address, it)
         }
 
+        val conversation = context.getConversations(mms.threadId).firstOrNull()
+        if (conversation != null) {
+            runCatching { context.insertOrUpdateConversation(conversation) }
+            context.updateArchivedStatusAtIncomingMessage(threadId = mms.threadId, address = address)
+            refreshMessages()
+            refreshConversations()
+        }
+
         context.showReceivedMessageNotification(
             messageId = mms.id,
             isMms = true,
@@ -91,13 +98,5 @@ class MmsReceiver : MmsReceivedReceiver() {
             threadId = mms.threadId,
             bitmap = glideBitmap
         )
-
-        val conversation = context.getConversations(mms.threadId).firstOrNull() ?: return
-        runCatching { context.insertOrUpdateConversation(conversation) }
-        if (context.shouldUnarchive()) {
-            context.updateConversationArchivedStatus(mms.threadId, false)
-        }
-        refreshMessages()
-        refreshConversations()
     }
 }
