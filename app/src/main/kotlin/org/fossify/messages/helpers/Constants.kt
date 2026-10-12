@@ -51,10 +51,29 @@ const val KEEP_CONVERSATIONS_ARCHIVED = "keep_conversations_archived"
 const val ARCHIVE_UNKNOWN_CONTACTS = "archive_unknown_contacts"
 const val SILENT_ARCHIVED_CONTACTS = "silent_archived_contacts"
 const val SKIP_DEFAULT_APP_REQUIREMENT = "skip_default_app_requirement"
+const val DETECT_OTP_MESSAGES = "detect_otp_messages"
+const val ENABLE_SAVED_MESSAGES = "enable_saved_messages"
+const val AUTO_COLOR_THEME = "auto_color_theme"
+
+// virtual, local-only thread used by the Saved Messages feature (never interacts with the telephony provider)
+const val SAVED_MESSAGES_THREAD_ID = -1L
+// synthetic address for the Saved Messages thread; digits only on purpose, to avoid being treated as a short code with letters
+const val SAVED_MESSAGES_ADDRESS = "0000000000"
+fun isSavedMessagesThreadId(threadId: Long) = threadId == SAVED_MESSAGES_THREAD_ID
+
+// virtual, local-only entry shown in the main list that opens the detected OTP screen
+const val OTP_THREAD_ID = -2L
+// synthetic address for the OTP entry, digits only to avoid being treated as a short code with letters
+const val OTP_ADDRESS = "0000000002"
+fun isOtpThreadId(threadId: Long) = threadId == OTP_THREAD_ID
 
 private const val PATH = "org.fossify.org.fossify.messages.action."
 const val MARK_AS_READ = PATH + "mark_as_read"
 const val REPLY = PATH + "reply"
+const val COPY_OTP = PATH + "copy_otp"
+
+// extra carrying the detected OTP code into the notification copy action
+const val OTP_CODE = "otp_code"
 
 // view types for the thread list view
 const val THREAD_DATE_TIME = 1

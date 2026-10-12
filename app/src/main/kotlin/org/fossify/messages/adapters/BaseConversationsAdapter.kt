@@ -199,8 +199,10 @@ abstract class BaseConversationsAdapter(
                 null
             }
 
+            // with the auto color theme every contact gets a colorful letter avatar, no photos
+            val photoUri = if (activity.config.autoColorTheme) "" else conversation.photoUri
             SimpleContactsHelper(activity).loadContactImage(
-                path = conversation.photoUri,
+                path = photoUri,
                 imageView = conversationImage,
                 placeholderName = conversation.title,
                 placeholderImage = placeholder

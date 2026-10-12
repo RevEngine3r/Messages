@@ -63,6 +63,13 @@
             android:parentActivityName=".activities.MainActivity" />
 
         <activity
+            android:name=".activities.OtpMessagesActivity"
+            android:configChanges="orientation"
+            android:exported="true"
+            android:label="@string/otp_messages"
+            android:parentActivityName=".activities.MainActivity" />
+
+        <activity
             android:name=".activities.ThreadActivity"
             android:configChanges="orientation"
             android:exported="false"
@@ -224,6 +231,11 @@
 
         <receiver
             android:name=".receivers.DeleteSmsReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receivers.CopyOtpReceiver"
             android:enabled="true"
             android:exported="false" />
 

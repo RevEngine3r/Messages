@@ -35,7 +35,11 @@ import org.fossify.messages.dialogs.ExportMessagesDialog
 import org.fossify.messages.extensions.archiveUnknownConversations
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.emptyMessagesRecycleBin
+import org.fossify.messages.extensions.ensureSavedMessagesConversation
+import org.fossify.messages.extensions.ensureOtpConversation
 import org.fossify.messages.extensions.messagesDB
+import org.fossify.messages.extensions.removeSavedMessagesConversation
+import org.fossify.messages.extensions.removeOtpConversation
 import org.fossify.messages.helpers.FILE_SIZE_100_KB
 import org.fossify.messages.helpers.FILE_SIZE_1_MB
 import org.fossify.messages.helpers.FILE_SIZE_200_KB
@@ -99,6 +103,7 @@ class SettingsActivity : SimpleActivity() {
         setupTopAppBar(binding.settingsAppbar, NavigationIcon.Arrow)
 
         setupCustomizeColors()
+        setupAutoColorTheme()
         setupCustomizeNotifications()
         setupUseEnglish()
         setupLanguage()
@@ -107,6 +112,8 @@ class SettingsActivity : SimpleActivity() {
         setupChangeDateTimeFormat()
         setupFontSize()
         setupSkipDefaultAppRequirement()
+        setupDetectOtpMessages()
+        setupSavedMessages()
         setupShowCharacterCounter()
         setupUseSimpleCharacters()
         setupSendOnEnter()
@@ -167,6 +174,14 @@ class SettingsActivity : SimpleActivity() {
     private fun setupCustomizeColors() = binding.apply {
         settingsColorCustomizationHolder.setOnClickListener {
             startCustomizationActivity()
+        }
+    }
+
+    private fun setupAutoColorTheme() = binding.apply {
+        settingsAutoColorTheme.isChecked = config.autoColorTheme
+        settingsAutoColorThemeHolder.setOnClickListener {
+            settingsAutoColorTheme.toggle()
+            config.autoColorTheme = settingsAutoColorTheme.isChecked
         }
     }
 
@@ -337,6 +352,40 @@ class SettingsActivity : SimpleActivity() {
         settingsSkipDefaultAppRequirementHolder.setOnClickListener {
             settingsSkipDefaultAppRequirement.toggle()
             config.skipDefaultAppRequirement = settingsSkipDefaultAppRequirement.isChecked
+        }
+    }
+
+    private fun setupDetectOtpMessages() = binding.apply {
+        settingsDetectOtpMessages.isChecked = config.detectOtpMessages
+        settingsDetectOtpMessagesHolder.setOnClickListener {
+            settingsDetectOtpMessages.toggle()
+            config.detectOtpMessages = settingsDetectOtpMessages.isChecked
+
+            ensureBackgroundThread {
+                if (config.detectOtpMessages) {
+                    ensureOtpConversation()
+                } else {
+                    removeOtpConversation()
+                }
+                refreshConversations()
+            }
+        }
+    }
+
+    private fun setupSavedMessages() = binding.apply {
+        settingsEnableSavedMessages.isChecked = config.enableSavedMessages
+        settingsEnableSavedMessagesHolder.setOnClickListener {
+            settingsEnableSavedMessages.toggle()
+            config.enableSavedMessages = settingsEnableSavedMessages.isChecked
+
+            ensureBackgroundThread {
+                if (config.enableSavedMessages) {
+                    ensureSavedMessagesConversation()
+                } else {
+                    removeSavedMessagesConversation()
+                }
+                refreshConversations()
+            }
         }
     }
 

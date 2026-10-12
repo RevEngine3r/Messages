@@ -186,6 +186,30 @@
     <string name="faq_4_text">You need to enable \"Send group messages as MMS\" in the app settings. This will ensure that group messages are sent as proper MMS, allowing all participants to see each other\'s replies.</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
+    <!-- OTP messages -->
+    <string name="detect_otp_messages">Detect OTP messages</string>
+    <string name="otp_messages">OTP messages</string>
+    <string name="show_otp_messages">Show OTP messages</string>
+    <string name="no_otp_messages">No OTP messages have been detected</string>
+    <string name="otp_messages_placeholder">Tap to view detected OTP codes</string>
+    <string name="copy_code">Copy code</string>
+    <string name="copy_otp">Copy OTP</string>
+    <string name="otp_copied">OTP code copied to clipboard</string>
+    <string name="delete_all_otp_messages">Delete all OTP messages</string>
+    <string name="delete_otp_message_confirmation">Are you sure you want to delete this OTP message?</string>
+    <string name="delete_all_otp_messages_confirmation">Are you sure you want to delete all OTP messages?</string>
+    <!-- Mark all as read -->
+    <string name="mark_all_as_read">Mark all as read</string>
+    <string name="all_conversations_marked_read">All conversations have been marked as read</string>
+    <!-- Saved Messages -->
+    <string name="saved_messages">Saved Messages</string>
+    <string name="enable_saved_messages">Enable Saved Messages</string>
+    <string name="save_to_saved_messages">Save to Saved Messages</string>
+    <string name="saved_to_saved_messages">Saved to Saved Messages</string>
+    <string name="save_note">Save</string>
+    <!-- Auto color theme -->
+    <string name="auto_color_theme">Use colorful contact themes</string>
+    <string name="auto_color_theme_desc">Give each contact a random color, applied to their avatar and chat bubbles</string>
     <!--
         Haven't found some strings? There's more at
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res

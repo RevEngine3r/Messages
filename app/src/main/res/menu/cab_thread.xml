@@ -22,6 +22,12 @@
         android:title="@string/save_as"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/cab_save_to_saved"
+        android:icon="@drawable/ic_save_vector"
+        android:showAsAction="ifRoom"
+        android:title="@string/save_to_saved_messages"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/cab_delete"
         android:icon="@drawable/ic_delete_vector"
         android:showAsAction="always"

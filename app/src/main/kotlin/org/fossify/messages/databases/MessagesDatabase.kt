@@ -14,11 +14,13 @@ import org.fossify.messages.interfaces.ConversationsDao
 import org.fossify.messages.interfaces.DraftsDao
 import org.fossify.messages.interfaces.MessageAttachmentsDao
 import org.fossify.messages.interfaces.MessagesDao
+import org.fossify.messages.interfaces.OtpDao
 import org.fossify.messages.models.Attachment
 import org.fossify.messages.models.Conversation
 import org.fossify.messages.models.Draft
 import org.fossify.messages.models.Message
 import org.fossify.messages.models.MessageAttachment
+import org.fossify.messages.models.OtpMessage
 import org.fossify.messages.models.RecycleBinMessage
 
 @Database(
@@ -28,9 +30,10 @@ import org.fossify.messages.models.RecycleBinMessage
         MessageAttachment::class,
         Message::class,
         RecycleBinMessage::class,
-        Draft::class
+        Draft::class,
+        OtpMessage::class
     ],
-    version = 11
+    version = 12
 )
 @TypeConverters(Converters::class)
 abstract class MessagesDatabase : RoomDatabase() {
@@ -44,6 +47,8 @@ abstract class MessagesDatabase : RoomDatabase() {
     abstract fun MessagesDao(): MessagesDao
 
     abstract fun DraftsDao(): DraftsDao
+
+    abstract fun OtpDao(): OtpDao
 
     companion object {
         private var db: MessagesDatabase? = null
@@ -68,6 +73,7 @@ abstract class MessagesDatabase : RoomDatabase() {
                             .addMigrations(MIGRATION_8_9)
                             .addMigrations(MIGRATION_9_10)
                             .addMigrations(MIGRATION_10_11)
+                            .addMigrations(MIGRATION_11_12)
                             .build()
                     }
                 }
@@ -172,6 +178,15 @@ abstract class MessagesDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_messages_thread_id_date` " +
                         "ON `messages` (`thread_id`, `date`)"
                 )
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.apply {
+                    execSQL("CREATE TABLE IF NOT EXISTS `otp_messages` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `message_id` INTEGER NOT NULL, `is_mms` INTEGER NOT NULL, `thread_id` INTEGER NOT NULL, `sender` TEXT NOT NULL, `code` TEXT NOT NULL, `body` TEXT NOT NULL, `date` INTEGER NOT NULL)")
+                    execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_otp_messages_message_id_is_mms` ON `otp_messages` (`message_id`, `is_mms`)")
+                }
             }
         }
     }

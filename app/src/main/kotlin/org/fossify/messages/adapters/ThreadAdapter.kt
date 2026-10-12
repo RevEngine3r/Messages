@@ -36,11 +36,13 @@ import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.copyToClipboard
 import org.fossify.commons.extensions.formatDateOrTime
 import org.fossify.commons.extensions.getContrastColor
+import org.fossify.commons.extensions.getNameColor
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getTextSize
 import org.fossify.commons.extensions.getTimeFormat
 import org.fossify.commons.extensions.shareTextIntent
 import org.fossify.commons.extensions.showErrorToast
+import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.usableScreenSize
 import org.fossify.commons.helpers.FontHelper
 import org.fossify.commons.helpers.SimpleContactsHelper
@@ -65,14 +67,18 @@ import org.fossify.messages.dialogs.MessageDetailsDialog
 import org.fossify.messages.dialogs.SelectTextDialog
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.getContactFromAddress
+import org.fossify.messages.extensions.getThreadTitle
 import org.fossify.messages.extensions.isImageMimeType
 import org.fossify.messages.extensions.isPlayableAudioMimeType
 import org.fossify.messages.extensions.isVCardMimeType
 import org.fossify.messages.extensions.isVideoMimeType
 import org.fossify.messages.extensions.launchViewIntent
+import org.fossify.messages.extensions.saveMessageToSavedMessages
 import org.fossify.messages.extensions.startContactDetailsIntent
 import org.fossify.messages.extensions.subscriptionManagerCompat
 import org.fossify.messages.helpers.EXTRA_VCARD_URI
+import org.fossify.messages.helpers.SAVED_MESSAGES_THREAD_ID
+import org.fossify.messages.helpers.extractOtpCode
 import org.fossify.messages.helpers.THREAD_DATE_TIME
 import org.fossify.messages.helpers.THREAD_RECEIVED_MESSAGE
 import org.fossify.messages.helpers.THREAD_SENT_MESSAGE
@@ -100,6 +106,7 @@ class ThreadAdapter(
     val deleteMessages: (messages: List<Message>, toRecycleBin: Boolean, fromRecycleBin: Boolean) -> Unit
 ) : MyRecyclerViewListAdapter<ThreadItem>(activity, recyclerView, ThreadItemDiffCallback(), itemClick) {
     private var fontSize = activity.getTextSize()
+    private val autoColorTheme = activity.config.autoColorTheme
 
     @SuppressLint("MissingPermission")
     private val hasMultipleSIMCards = (activity.subscriptionManagerCompat().activeSubscriptionInfoList?.size ?: 0) > 1
@@ -130,6 +137,7 @@ class ThreadAdapter(
         menu.apply {
             findItem(R.id.cab_copy_to_clipboard).isVisible = hasText
             findItem(R.id.cab_save_as).isVisible = showSaveAs
+            findItem(R.id.cab_save_to_saved).isVisible = canSaveToSavedMessages(selectedMessages) && hasText
             findItem(R.id.cab_share).isVisible = isOneItemSelected && hasText
             findItem(R.id.cab_forward_message).isVisible = isOneItemSelected
             findItem(R.id.cab_select_text).isVisible = isOneItemSelected && hasText
@@ -146,6 +154,7 @@ class ThreadAdapter(
         when (id) {
             R.id.cab_copy_to_clipboard -> copyToClipboard()
             R.id.cab_save_as -> saveAs()
+            R.id.cab_save_to_saved -> saveToSavedMessages()
             R.id.cab_share -> shareText()
             R.id.cab_forward_message -> forwardMessage()
             R.id.cab_select_text -> selectText()
@@ -254,6 +263,27 @@ class ThreadAdapter(
         if (attachments.isNotEmpty()) {
             (activity as ThreadActivity).saveMMS(attachments)
         }
+    }
+
+    private fun canSaveToSavedMessages(selectedMessages: List<Message>): Boolean {
+        val isSavedMessagesThread = selectedMessages.all { it.threadId == SAVED_MESSAGES_THREAD_ID }
+        return activity.config.enableSavedMessages && !isSavedMessagesThread
+    }
+
+    // copy the text of the selected messages into the local only Saved Messages thread
+    private fun saveToSavedMessages() {
+        val bodies = getSelectedItems()
+            .filterIsInstance<Message>()
+            .map { it.body.trim() }
+            .filter { it.isNotEmpty() }
+
+        if (bodies.isEmpty()) {
+            return
+        }
+
+        activity.saveMessageToSavedMessages(bodies.joinToString("\n\n"))
+        activity.toast(R.string.saved_to_saved_messages)
+        finishActMode()
     }
 
     private fun shareText() {
@@ -431,10 +461,21 @@ class ThreadAdapter(
             }
 
             threadMessageBody.apply {
-                background = AppCompatResources.getDrawable(activity, R.drawable.item_received_background)
-                setTextColor(textColor)
-                setLinkTextColor(activity.getProperPrimaryColor())
+                if (autoColorTheme) {
+                    // give every sender the same color as their letter avatar has
+                    val senderColor = message.senderName.getNameColor()
+                    background = AppCompatResources.getDrawable(activity, R.drawable.item_received_background)
+                    background.applyColorFilter(senderColor)
+                    setTextColor(senderColor.getContrastColor())
+                    setLinkTextColor(senderColor.getContrastColor())
+                } else {
+                    background = AppCompatResources.getDrawable(activity, R.drawable.item_received_background)
+                    setTextColor(textColor)
+                    setLinkTextColor(activity.getProperPrimaryColor())
+                }
             }
+
+            setupOtpChip(this, message)
 
             if (!activity.isFinishing && !activity.isDestroyed) {
                 val contactLetterIcon = SimpleContactsHelper(activity).getContactLetterIcon(message.senderName)
@@ -446,7 +487,7 @@ class ThreadAdapter(
                     .centerCrop()
 
                 Glide.with(activity)
-                    .load(message.senderPhotoUri)
+                    .load(if (autoColorTheme) "" else message.senderPhotoUri)
                     .placeholder(placeholder)
                     .apply(options)
                     .apply(RequestOptions.circleCropTransform())
@@ -455,8 +496,27 @@ class ThreadAdapter(
         }
     }
 
+    // show a small "Copy OTP" chip under received messages that contain a verification code
+    private fun setupOtpChip(binding: ItemMessageBinding, message: Message) {
+        val code = if (activity.config.detectOtpMessages) extractOtpCode(message.body) else null
+        binding.threadMessageOtpHolder.apply {
+            beVisibleIf(code != null)
+            if (code == null) {
+                return
+            }
+
+            val primaryColor = activity.getProperPrimaryColor()
+            binding.threadMessageOtpLabel.setTextColor(primaryColor)
+            binding.threadMessageOtpIcon.applyColorFilter(primaryColor)
+            setOnClickListener {
+                activity.copyToClipboard(code)
+            }
+        }
+    }
+
     private fun setupSentMessageView(messageBinding: ItemMessageBinding, message: Message) {
         messageBinding.apply {
+            threadMessageOtpHolder.beGone()
             with(ConstraintSet()) {
                 clone(threadMessageHolder)
                 clear(threadMessageWrapper.id, ConstraintSet.START)
@@ -465,7 +525,12 @@ class ThreadAdapter(
             }
 
             val primaryColor = activity.getProperPrimaryColor()
-            val contrastColor = primaryColor.getContrastColor()
+            val bubbleColor = if (autoColorTheme) {
+                message.participants.getThreadTitle().getNameColor()
+            } else {
+                primaryColor
+            }
+            val contrastColor = bubbleColor.getContrastColor()
 
             threadMessageBody.apply {
                 updateLayoutParams<RelativeLayout.LayoutParams> {
@@ -474,7 +539,7 @@ class ThreadAdapter(
                 }
 
                 background = AppCompatResources.getDrawable(activity, R.drawable.item_sent_background)
-                background.applyColorFilter(primaryColor)
+                background.applyColorFilter(bubbleColor)
                 setTextColor(contrastColor)
                 setLinkTextColor(contrastColor)
 

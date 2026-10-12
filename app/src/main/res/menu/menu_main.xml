@@ -4,6 +4,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="AppCompatResource,AlwaysShowAction">
     <item
+        android:id="@+id/mark_all_read"
+        android:showAsAction="never"
+        android:title="@string/mark_all_as_read"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/show_recycle_bin"
         android:showAsAction="never"
         android:title="@string/show_the_recycle_bin"
@@ -12,6 +17,11 @@
         android:id="@+id/show_archived"
         android:showAsAction="never"
         android:title="@string/show_archived_conversations"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/show_otp"
+        android:showAsAction="never"
+        android:title="@string/show_otp_messages"
         app:showAsAction="never" />
     <item
         android:id="@+id/settings"

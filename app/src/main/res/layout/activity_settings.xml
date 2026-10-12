@@ -59,6 +59,21 @@
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
+            <RelativeLayout
+                android:id="@+id/settings_auto_color_theme_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_auto_color_theme"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/auto_color_theme" />
+
+            </RelativeLayout>
+
             <include
                 android:id="@+id/settings_color_customization_divider"
                 layout="@layout/divider" />
@@ -193,6 +208,36 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/skip_default_app_requirement" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_detect_otp_messages_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_detect_otp_messages"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/detect_otp_messages" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_enable_saved_messages_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_enable_saved_messages"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/enable_saved_messages" />
 
             </RelativeLayout>
 

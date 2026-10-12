@@ -56,6 +56,7 @@ import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.addBlockedNumber
 import org.fossify.commons.extensions.applyColorFilter
 import org.fossify.commons.extensions.beGone
+import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisible
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.copyToClipboard
@@ -113,6 +114,7 @@ import org.fossify.messages.dialogs.InvalidNumberDialog
 import org.fossify.messages.dialogs.RenameConversationDialog
 import org.fossify.messages.dialogs.ScheduleMessageDialog
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
+import org.fossify.messages.extensions.buildSavedMessagesMessage
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.copyToUri
@@ -154,6 +156,7 @@ import org.fossify.messages.extensions.toArrayList
 import org.fossify.messages.extensions.toSortedMessages
 import org.fossify.messages.extensions.updateConversationArchivedStatus
 import org.fossify.messages.extensions.updateLastConversationMessage
+import org.fossify.messages.extensions.updateSavedMessagesConversation
 import org.fossify.messages.extensions.updateScheduledMessagesThreadId
 import org.fossify.messages.helpers.AudioPlayerManager
 import org.fossify.messages.helpers.CAPTURE_AUDIO_INTENT
@@ -177,6 +180,7 @@ import org.fossify.messages.helpers.THREAD_NUMBER
 import org.fossify.messages.helpers.THREAD_TEXT
 import org.fossify.messages.helpers.THREAD_TITLE
 import org.fossify.messages.helpers.generateRandomId
+import org.fossify.messages.helpers.isSavedMessagesThreadId
 import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.helpers.refreshMessages
 import org.fossify.messages.messaging.cancelScheduleSendPendingIntent
@@ -221,6 +225,10 @@ class ThreadActivity : SimpleActivity() {
     private var isJumpingToMessage = false
     private var isRecycleBin = false
     private var isLaunchedFromShortcut = false
+
+    // the Saved Messages thread is stored only locally, it never talks to the telephony provider
+    private val isSavedMessagesThread
+        get() = isSavedMessagesThreadId(threadId)
 
     private var isScheduledMessage: Boolean = false
     private var isGroupMessageConfirmationVisible = false
@@ -352,6 +360,24 @@ class ThreadActivity : SimpleActivity() {
     }
 
     private fun refreshMenuItems() {
+        if (isSavedMessagesThread) {
+            binding.threadToolbar.menu.apply {
+                findItem(R.id.delete).isVisible = threadItems.isNotEmpty()
+                findItem(R.id.mark_as_unread).isVisible = threadItems.isNotEmpty()
+                findItem(R.id.dial_number).isVisible = false
+                findItem(R.id.archive).isVisible = false
+                findItem(R.id.unarchive).isVisible = false
+                findItem(R.id.manage_people).isVisible = false
+                findItem(R.id.add_number_to_contact).isVisible = false
+                findItem(R.id.copy_number).isVisible = false
+                findItem(R.id.rename_conversation).isVisible = false
+                findItem(R.id.conversation_details).isVisible = false
+                findItem(R.id.block_number).isVisible = false
+                findItem(R.id.restore).isVisible = false
+            }
+            return
+        }
+
         val firstPhoneNumber = participants.firstOrNull()?.phoneNumbers?.firstOrNull()?.value
         val archiveAvailable = config.isArchiveAvailable
         binding.threadToolbar.menu.apply {
@@ -471,6 +497,12 @@ class ThreadActivity : SimpleActivity() {
     }
 
     private fun setupThread(callback: () -> Unit) {
+        if (isSavedMessagesThread) {
+            // everything of the Saved Messages thread is already loaded from the local database
+            callback()
+            return
+        }
+
         if (conversation == null && isLaunchedFromShortcut) {
             if (isTaskRoot) {
                 Intent(this, MainActivity::class.java).apply {
@@ -730,7 +762,9 @@ class ThreadActivity : SimpleActivity() {
                 deleteScheduledMessage(messageId)
                 cancelScheduleSendPendingIntent(messageId)
             } else {
-                if (toRecycleBin) {
+                if (isSavedMessagesThreadId(message.threadId)) {
+                    messagesDB.delete(messageId)
+                } else if (toRecycleBin) {
                     moveMessageToRecycleBin(messageId)
                 } else if (fromRecycleBin) {
                     restoreMessageFromRecycleBin(messageId)
@@ -798,6 +832,10 @@ class ThreadActivity : SimpleActivity() {
     }
 
     private fun loadMoreMessages() {
+        if (isSavedMessagesThread) {
+            return
+        }
+
         val messageSnapshot = messages.toSortedMessages()
         if (messageSnapshot.isEmpty() || allMessagesFetched || loadingOlderMessages) return
         loadingOlderMessages = true
@@ -866,6 +904,7 @@ class ThreadActivity : SimpleActivity() {
 
             confirmManageContacts.applyColorFilter(textColor)
             threadAddAttachment.applyColorFilter(textColor)
+            threadAddAttachment.beGoneIf(isSavedMessagesThread)
 
             val properPrimaryColor = getProperPrimaryColor()
             threadMessagesFastscroller.updateColors(properPrimaryColor)
@@ -1074,6 +1113,10 @@ class ThreadActivity : SimpleActivity() {
 
     @SuppressLint("MissingPermission")
     private fun setupSIMSelector() {
+        if (isSavedMessagesThread) {
+            return
+        }
+
         val availableSIMs = subscriptionManagerCompat().activeSubscriptionInfoList ?: return
         if (availableSIMs.size > 1) {
             availableSIMs.forEachIndexed { index, subscriptionInfo ->
@@ -1592,6 +1635,11 @@ class ThreadActivity : SimpleActivity() {
 
         text = removeDiacriticsIfNeeded(text)
 
+        if (isSavedMessagesThread) {
+            saveNote(text)
+            return
+        }
+
         val subscriptionId = availableSIMCards.getOrNull(currentSIMCardIndex)?.subscriptionId
             ?: SmsManager.getDefaultSmsSubscriptionId()
 
@@ -1622,6 +1670,22 @@ class ThreadActivity : SimpleActivity() {
             onDismiss = { isGroupMessageConfirmationVisible = false }
         )
         return true
+    }
+
+    // store a note in the local only Saved Messages thread, nothing is sent anywhere
+    private fun saveNote(text: String) {
+        if (text.isBlank()) {
+            return
+        }
+
+        ensureBackgroundThread {
+            val message = buildSavedMessagesMessage(text)
+            insertOrUpdateMessage(message)
+            updateSavedMessagesConversation(message)
+            runOnUiThread {
+                clearCurrentMessage()
+            }
+        }
     }
 
     private fun sendScheduledMessage(text: String, subscriptionId: Int) {
@@ -1722,7 +1786,7 @@ class ThreadActivity : SimpleActivity() {
             }
         }
         messagesDB.insertOrUpdate(message)
-        if (shouldUnarchive()) {
+        if (shouldUnarchive() && !isSavedMessagesThreadId(message.threadId)) {
             updateConversationArchivedStatus(message.threadId, false)
             refreshConversations()
         }
@@ -1859,6 +1923,24 @@ class ThreadActivity : SimpleActivity() {
             return
         }
 
+        if (isSavedMessagesThread) {
+            // the Saved Messages thread lives only in the local database, it never exists in the
+            // telephony provider, so reloading from the provider would wipe the whole thread out
+            ensureBackgroundThread {
+                messages = try {
+                    if (config.useRecycleBin) {
+                        messagesDB.getNonRecycledThreadMessages(threadId)
+                    } else {
+                        messagesDB.getThreadMessages(threadId)
+                    }
+                } catch (e: Exception) {
+                    messages
+                }.toSortedMessages()
+                setupAdapter()
+            }
+            return
+        }
+
         refreshedSinceSent = true
         allMessagesFetched = false
 
@@ -1912,10 +1994,10 @@ class ThreadActivity : SimpleActivity() {
 
     private fun updateMessageType() {
         val text = binding.messageHolder.threadTypeMessage.text.toString()
-        val stringId = if (isMmsMessage(text)) {
-            R.string.mms
-        } else {
-            R.string.sms
+        val stringId = when {
+            isSavedMessagesThread -> R.string.save_note
+            isMmsMessage(text) -> R.string.mms
+            else -> R.string.sms
         }
         binding.messageHolder.threadSendMessage.setText(stringId)
     }

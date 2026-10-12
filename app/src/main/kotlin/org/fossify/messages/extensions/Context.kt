@@ -59,13 +59,22 @@ import org.fossify.messages.helpers.MAX_MESSAGE_LENGTH
 import org.fossify.messages.helpers.MESSAGES_LIMIT
 import org.fossify.messages.helpers.MessagingCache
 import org.fossify.messages.helpers.NotificationHelper
+import org.fossify.messages.helpers.OTP_ADDRESS
+import org.fossify.messages.helpers.OTP_THREAD_ID
+import org.fossify.messages.helpers.SAVED_MESSAGES_ADDRESS
+import org.fossify.messages.helpers.SAVED_MESSAGES_THREAD_ID
 import org.fossify.messages.helpers.ShortcutHelper
+import org.fossify.messages.helpers.extractOtpCode
 import org.fossify.messages.helpers.generateRandomId
+import org.fossify.messages.helpers.isOtpThreadId
+import org.fossify.messages.helpers.isSavedMessagesThreadId
+import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.interfaces.AttachmentsDao
 import org.fossify.messages.interfaces.ConversationsDao
 import org.fossify.messages.interfaces.DraftsDao
 import org.fossify.messages.interfaces.MessageAttachmentsDao
 import org.fossify.messages.interfaces.MessagesDao
+import org.fossify.messages.interfaces.OtpDao
 import org.fossify.messages.messaging.MessagingUtils
 import org.fossify.messages.messaging.MessagingUtils.Companion.ADDRESS_SEPARATOR
 import org.fossify.messages.messaging.SmsSender
@@ -76,6 +85,7 @@ import org.fossify.messages.models.Draft
 import org.fossify.messages.models.Message
 import org.fossify.messages.models.MessageAttachment
 import org.fossify.messages.models.NamePhoto
+import org.fossify.messages.models.OtpMessage
 import org.fossify.messages.models.RecycleBinMessage
 import org.xmlpull.v1.XmlPullParserException
 import java.io.FileNotFoundException
@@ -100,6 +110,9 @@ val Context.messagesDB: MessagesDao
 
 val Context.draftsDB: DraftsDao
     get() = getMessagesDB().DraftsDao()
+
+val Context.otpDB: OtpDao
+    get() = getMessagesDB().OtpDao()
 
 val Context.notificationHelper
     get() = NotificationHelper(this)
@@ -864,6 +877,13 @@ fun Context.removeAllArchivedConversations(callback: (() -> Unit)? = null) {
 }
 
 fun Context.deleteConversation(threadId: Long) {
+    if (isSavedMessagesThreadId(threadId)) {
+        // the Saved Messages thread is local only, so skip the provider removals below
+        conversationsDB.deleteThreadId(threadId)
+        messagesDB.deleteThreadMessages(threadId)
+        return
+    }
+
     var uri = Sms.CONTENT_URI
     val selection = "${Sms.THREAD_ID} = ?"
     val selectionArgs = arrayOf(threadId.toString())
@@ -990,6 +1010,8 @@ fun Context.archiveUnknownConversations() {
         val unknownStatuses = HashMap<String, Boolean>()
         conversations
             .filterNot { it.isScheduled }
+            .filterNot { isSavedMessagesThreadId(it.threadId) }
+            .filterNot { isOtpThreadId(it.threadId) }
             .filter { isUnknownConversation(it, privateCursor, unknownStatuses) }
             .forEach { runCatching { updateConversationArchivedStatus(it.threadId, true) } }
     }
@@ -1093,6 +1115,13 @@ fun Context.markMessageRead(id: Long, isMMS: Boolean) {
 }
 
 fun Context.markThreadMessagesRead(threadId: Long) {
+    if (isSavedMessagesThreadId(threadId)) {
+        // the Saved Messages thread is local-only, the provider has nothing to update
+        messagesDB.markThreadRead(threadId)
+        conversationsDB.markRead(threadId)
+        return
+    }
+
     val id = threadId.toString()
 
     val smsValues = ContentValues().apply {
@@ -1116,6 +1145,11 @@ fun Context.markThreadMessagesRead(threadId: Long) {
 }
 
 fun Context.markThreadMessagesUnread(threadId: Long) {
+    if (isSavedMessagesThreadId(threadId)) {
+        conversationsDB.markUnread(threadId)
+        return
+    }
+
     arrayOf(Sms.CONTENT_URI, Mms.CONTENT_URI).forEach { uri ->
         val contentValues = ContentValues().apply {
             put(Sms.READ, 0)
@@ -1127,6 +1161,153 @@ fun Context.markThreadMessagesUnread(threadId: Long) {
     }
     conversationsDB.markUnread(threadId)
 } 
+
+fun Context.markAllConversationsRead(conversations: List<Conversation>) {
+    conversations.filterNot { it.read }.forEach { markThreadMessagesRead(it.threadId) }
+}
+
+fun Context.getSavedMessagesTitle() = getString(R.string.saved_messages)
+
+fun Context.ensureSavedMessagesConversation() {
+    if (conversationsDB.getConversationWithThreadId(SAVED_MESSAGES_THREAD_ID) == null) {
+        conversationsDB.insertOrUpdate(getNewSavedMessagesConversation())
+    }
+}
+
+fun Context.getNewSavedMessagesConversation() = Conversation(
+    threadId = SAVED_MESSAGES_THREAD_ID,
+    snippet = "",
+    date = (System.currentTimeMillis() / 1000).toInt(),
+    read = true,
+    title = getSavedMessagesTitle(),
+    photoUri = "",
+    isGroupConversation = false,
+    phoneNumber = SAVED_MESSAGES_ADDRESS,
+    isScheduled = false,
+    usesCustomTitle = true,
+    isArchived = false,
+)
+
+fun Context.removeSavedMessagesConversation() {
+    conversationsDB.deleteThreadId(SAVED_MESSAGES_THREAD_ID)
+    messagesDB.deleteThreadMessages(SAVED_MESSAGES_THREAD_ID)
+}
+
+fun Context.getSavedMessagesConversation(): Conversation {
+    return conversationsDB.getConversationWithThreadId(SAVED_MESSAGES_THREAD_ID)
+        ?: getNewSavedMessagesConversation()
+}
+
+// build a note of the local only Saved Messages thread, it never touches the telephony provider
+fun Context.buildSavedMessagesMessage(body: String, title: String = getSavedMessagesTitle()): Message {
+    val selfContact = SimpleContact(
+        rawId = 0,
+        contactId = 0,
+        name = title,
+        photoUri = "",
+        phoneNumbers = arrayListOf(PhoneNumber(SAVED_MESSAGES_ADDRESS, 0, "", SAVED_MESSAGES_ADDRESS)),
+        birthdays = ArrayList(),
+        anniversaries = ArrayList()
+    )
+
+    return Message(
+        id = generateRandomId(),
+        body = body,
+        type = Sms.MESSAGE_TYPE_SENT,
+        status = Sms.STATUS_NONE,
+        participants = arrayListOf(selfContact),
+        date = (System.currentTimeMillis() / 1000).toInt(),
+        read = true,
+        threadId = SAVED_MESSAGES_THREAD_ID,
+        isMMS = false,
+        attachment = null,
+        senderPhoneNumber = SAVED_MESSAGES_ADDRESS,
+        senderName = title,
+        senderPhotoUri = "",
+        subscriptionId = -1
+    )
+}
+
+fun Context.saveMessageToSavedMessages(body: String) {
+    if (body.isBlank()) {
+        return
+    }
+
+    ensureBackgroundThread {
+        try {
+            val message = buildSavedMessagesMessage(body)
+            messagesDB.insertOrUpdate(message)
+            updateSavedMessagesConversation(message)
+            refreshConversations()
+        } catch (_: Exception) {
+        }
+    }
+}
+
+// refresh the snippet and date of the locally stored Saved Messages conversation
+fun Context.updateSavedMessagesConversation(latestMessage: Message? = null) {
+    try {
+        val conversation = getSavedMessagesConversation()
+        val lastMessage = latestMessage
+            ?: messagesDB.getThreadMessages(SAVED_MESSAGES_THREAD_ID).maxByOrNull { it.date }
+
+        conversationsDB.insertOrUpdate(
+            conversation.copy(
+                snippet = lastMessage?.body ?: conversation.snippet,
+                date = lastMessage?.date ?: conversation.date,
+                read = true,
+                unreadCount = 0,
+            )
+        )
+    } catch (_: Exception) {
+    }
+}
+
+fun Context.getOtpMessagesTitle() = getString(R.string.otp_messages)
+
+// build the local-only virtual "OTP" row shown in the main conversation list; it only links to
+// the OtpMessagesActivity and never interacts with the telephony provider
+fun Context.getNewOtpConversation() = Conversation(
+    threadId = OTP_THREAD_ID,
+    snippet = getString(R.string.otp_messages_placeholder),
+    date = (System.currentTimeMillis() / 1000).toInt(),
+    read = true,
+    title = getOtpMessagesTitle(),
+    photoUri = "",
+    isGroupConversation = false,
+    phoneNumber = OTP_ADDRESS,
+    isScheduled = false,
+    usesCustomTitle = true,
+    isArchived = false,
+)
+
+fun Context.ensureOtpConversation() {
+    if (conversationsDB.getConversationWithThreadId(OTP_THREAD_ID) == null) {
+        conversationsDB.insertOrUpdate(getNewOtpConversation())
+    }
+}
+
+fun Context.removeOtpConversation() {
+    conversationsDB.deleteThreadId(OTP_THREAD_ID)
+}
+
+// refresh the snippet, sender and date of the virtual OTP row after a code is detected
+fun Context.updateOtpConversation(otp: OtpMessage) {
+    try {
+        val conversation = conversationsDB.getConversationWithThreadId(OTP_THREAD_ID)
+            ?: getNewOtpConversation()
+
+        conversationsDB.insertOrUpdate(
+            conversation.copy(
+                snippet = "${otp.sender}: ${otp.code}",
+                date = (otp.date / 1000).toInt(),
+                read = true,
+                unreadCount = 0,
+            )
+        )
+    } catch (_: Exception) {
+    }
+}
 
 @SuppressLint("NewApi")
 fun Context.getThreadId(address: String): Long {
@@ -1155,6 +1336,18 @@ fun Context.showReceivedMessageNotification(
     threadId: Long,
     bitmap: Bitmap?,
 ) {
+    val otpCode = if (config.detectOtpMessages) extractOtpCode(body) else null
+    if (otpCode != null) {
+        storeDetectedOtpMessage(
+            messageId = messageId,
+            isMms = isMms,
+            senderName = senderName,
+            body = body,
+            threadId = threadId,
+            code = otpCode,
+        )
+    }
+
     if (shouldSilenceArchivedConversation(threadId)) {
         notificationManager.cancel(threadId.hashCode())
         return
@@ -1168,8 +1361,36 @@ fun Context.showReceivedMessageNotification(
             body = body,
             threadId = threadId,
             bitmap = bitmap,
-            sender = senderName
+            sender = senderName,
+            otpCode = otpCode,
         )
+    }
+}
+
+private fun Context.storeDetectedOtpMessage(
+    messageId: Long,
+    isMms: Boolean,
+    senderName: String,
+    body: String,
+    threadId: Long,
+    code: String,
+) {
+    ensureBackgroundThread {
+        try {
+            val otp = OtpMessage(
+                messageId = messageId,
+                isMms = isMms,
+                threadId = threadId,
+                sender = senderName,
+                code = code,
+                body = body,
+                date = System.currentTimeMillis(),
+            )
+            otpDB.insertOrUpdate(otp)
+            updateOtpConversation(otp)
+            refreshConversations()
+        } catch (_: Exception) {
+        }
     }
 }
 
@@ -1271,6 +1492,11 @@ fun Context.deleteSmsDraft(threadId: Long) {
 }
 
 fun Context.updateLastConversationMessage(threadId: Long) {
+    if (isSavedMessagesThreadId(threadId)) {
+        updateSavedMessagesConversation()
+        return
+    }
+
     updateLastConversationMessage(setOf(threadId))
 }
 
@@ -1284,6 +1510,11 @@ fun Context.updateLastConversationMessage(threadIds: Iterable<Long>) {
     try {
         contentResolver.delete(uri, selection, null)
         for (threadId in threadIds) {
+            if (isSavedMessagesThreadId(threadId)) {
+                updateSavedMessagesConversation()
+                continue
+            }
+
             val newConversation = getConversations(threadId)[0]
             insertOrUpdateConversation(newConversation)
         }

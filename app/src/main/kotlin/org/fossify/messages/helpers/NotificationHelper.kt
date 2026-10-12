@@ -23,6 +23,7 @@ import org.fossify.messages.activities.ThreadActivity
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.shortcutHelper
 import org.fossify.messages.messaging.isShortCodeWithLetters
+import org.fossify.messages.receivers.CopyOtpReceiver
 import org.fossify.messages.receivers.DeleteSmsReceiver
 import org.fossify.messages.receivers.DirectReplyReceiver
 import org.fossify.messages.receivers.MarkAsReadReceiver
@@ -44,7 +45,8 @@ class NotificationHelper(private val context: Context) {
         threadId: Long,
         bitmap: Bitmap?,
         sender: String?,
-        alertOnlyOnce: Boolean = false
+        alertOnlyOnce: Boolean = false,
+        otpCode: String? = null,
     ) {
         val hasCustomNotifications =
             context.config.customNotifications.contains(threadId.toString())
@@ -90,6 +92,22 @@ class NotificationHelper(private val context: Context) {
                 deleteSmsIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+
+        val copyOtpPendingIntent = if (otpCode != null) {
+            val copyOtpIntent = Intent(context, CopyOtpReceiver::class.java).apply {
+                action = COPY_OTP
+                putExtra(THREAD_ID, threadId)
+                putExtra(OTP_CODE, otpCode)
+            }
+            PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                copyOtpIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            null
+        }
 
         var replyAction: NotificationCompat.Action? = null
         val isNoReplySms = isShortCodeWithLetters(address)
@@ -168,6 +186,16 @@ class NotificationHelper(private val context: Context) {
                 org.fossify.commons.R.drawable.ic_delete_vector,
                 context.getString(org.fossify.commons.R.string.delete),
                 deleteSmsPendingIntent
+            ).setChannelId(notificationChannelId)
+        }
+
+        // show "Copy OTP" both in the heads-up popup and the notification center whenever a
+        // verification code is detected in the incoming message
+        if (copyOtpPendingIntent != null) {
+            builder.addAction(
+                org.fossify.commons.R.drawable.ic_copy_vector,
+                context.getString(R.string.copy_otp),
+                copyOtpPendingIntent
             ).setChannelId(notificationChannelId)
         }
 

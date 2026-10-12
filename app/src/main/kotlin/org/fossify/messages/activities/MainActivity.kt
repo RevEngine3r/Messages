@@ -60,13 +60,20 @@ import org.fossify.messages.extensions.clearAllMessagesIfNeeded
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
+import org.fossify.messages.extensions.ensureSavedMessagesConversation
+import org.fossify.messages.extensions.ensureOtpConversation
+import org.fossify.messages.extensions.removeOtpConversation
 import org.fossify.messages.extensions.getConversations
 import org.fossify.messages.extensions.getMessages
 import org.fossify.messages.extensions.insertOrUpdateConversation
+import org.fossify.messages.extensions.markAllConversationsRead
 import org.fossify.messages.extensions.messagesDB
 import org.fossify.messages.helpers.SEARCHED_MESSAGE_ID
 import org.fossify.messages.helpers.THREAD_ID
 import org.fossify.messages.helpers.THREAD_TITLE
+import org.fossify.messages.helpers.isOtpThreadId
+import org.fossify.messages.helpers.isSavedMessagesThreadId
+import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.models.Conversation
 import org.fossify.messages.models.Events
 import org.fossify.messages.models.Message
@@ -82,7 +89,9 @@ class MainActivity : SimpleActivity() {
 
     private var storedTextColor = 0
     private var storedFontSize = 0
+    private var storedAutoColorTheme = false
     private var lastSearchedText = ""
+    private var hasUnreadConversations = false
     private var bus: EventBus? = null
 
     private val binding by viewBinding(ActivityMainBinding::inflate)
@@ -118,6 +127,11 @@ class MainActivity : SimpleActivity() {
             }
 
             if (storedFontSize != config.fontSize) {
+                updateFontSize()
+            }
+
+            // rebind the items, the colorful letter avatars depend on the auto color theme
+            if (storedAutoColorTheme != config.autoColorTheme) {
                 updateFontSize()
             }
 
@@ -178,8 +192,10 @@ class MainActivity : SimpleActivity() {
 
         binding.mainMenu.requireToolbar().setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.mark_all_read -> markAllAsRead()
                 R.id.show_recycle_bin -> launchRecycleBin()
                 R.id.show_archived -> launchArchivedConversations()
+                R.id.show_otp -> launchOtpMessages()
                 R.id.settings -> launchSettings()
                 R.id.about -> launchAbout()
                 else -> return@setOnMenuItemClickListener false
@@ -190,8 +206,23 @@ class MainActivity : SimpleActivity() {
 
     private fun refreshMenuItems() {
         binding.mainMenu.requireToolbar().menu.apply {
+            findItem(R.id.mark_all_read).isVisible = hasUnreadConversations
             findItem(R.id.show_recycle_bin).isVisible = config.useRecycleBin
             findItem(R.id.show_archived).isVisible = config.isArchiveAvailable
+            findItem(R.id.show_otp).isVisible = config.detectOtpMessages
+        }
+    }
+
+    private fun markAllAsRead() {
+        ensureBackgroundThread {
+            try {
+                markAllConversationsRead(conversationsDB.getNonArchived())
+            } catch (_: Exception) {
+            }
+            refreshConversations()
+            runOnUiThread {
+                toast(R.string.all_conversations_marked_read)
+            }
         }
     }
 
@@ -209,6 +240,7 @@ class MainActivity : SimpleActivity() {
     private fun storeStateVariables() {
         storedTextColor = getProperTextColor()
         storedFontSize = config.fontSize
+        storedAutoColorTheme = config.autoColorTheme
     }
 
     private fun updateMenuColors() {
@@ -296,6 +328,16 @@ class MainActivity : SimpleActivity() {
 
     private fun getCachedConversations() {
         ensureBackgroundThread {
+            if (config.enableSavedMessages) {
+                ensureSavedMessagesConversation()
+            }
+
+            if (config.detectOtpMessages) {
+                ensureOtpConversation()
+            } else {
+                removeOtpConversation()
+            }
+
             val conversations = try {
                 conversationsDB.getNonArchived().toMutableList() as ArrayList<Conversation>
             } catch (_: Exception) {
@@ -315,7 +357,9 @@ class MainActivity : SimpleActivity() {
                 )
             }
             conversations.forEach {
-                clearExpiredScheduledMessages(it.threadId)
+                if (!isSavedMessagesThreadId(it.threadId) && !isOtpThreadId(it.threadId)) {
+                    clearExpiredScheduledMessages(it.threadId)
+                }
             }
         }
     }
@@ -339,7 +383,7 @@ class MainActivity : SimpleActivity() {
 
                 val isTemporaryThread = cachedConversation.isScheduled
                 val isConversationDeleted = !conversations.map { it.threadId }.contains(threadId)
-                if (isConversationDeleted && !isTemporaryThread) {
+                if (isConversationDeleted && !isTemporaryThread && !isSavedMessagesThreadId(threadId) && !isOtpThreadId(threadId)) {
                     conversationsDB.deleteThreadId(threadId)
                 }
 
@@ -429,6 +473,9 @@ class MainActivity : SimpleActivity() {
             showOrHidePlaceholder(conversations.isEmpty())
         }
 
+        hasUnreadConversations = conversations.any { !it.read }
+        refreshMenuItems()
+
         try {
             getOrCreateConversationsAdapter().apply {
                 updateConversations(sortedConversations) {
@@ -475,8 +522,13 @@ class MainActivity : SimpleActivity() {
     }
 
     private fun handleConversationClick(any: Any) {
+        val conversation = any as Conversation
+        if (isOtpThreadId(conversation.threadId)) {
+            launchOtpMessages()
+            return
+        }
+
         Intent(this, ThreadActivity::class.java).apply {
-            val conversation = any as Conversation
             putExtra(THREAD_ID, conversation.threadId)
             putExtra(THREAD_TITLE, conversation.title)
             startActivity(this)
@@ -629,6 +681,11 @@ class MainActivity : SimpleActivity() {
     private fun launchArchivedConversations() {
         hideKeyboard()
         startActivity(Intent(applicationContext, ArchivedConversationsActivity::class.java))
+    }
+
+    private fun launchOtpMessages() {
+        hideKeyboard()
+        startActivity(Intent(applicationContext, OtpMessagesActivity::class.java))
     }
 
     private fun launchSettings() {

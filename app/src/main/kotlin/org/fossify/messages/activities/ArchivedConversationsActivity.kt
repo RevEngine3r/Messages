@@ -10,6 +10,7 @@ import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getProperBackgroundColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.extensions.hideKeyboard
+import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
 import org.fossify.commons.helpers.ensureBackgroundThread
@@ -18,9 +19,12 @@ import org.fossify.messages.adapters.ArchivedConversationsAdapter
 import org.fossify.messages.databinding.ActivityArchivedConversationsBinding
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
+import org.fossify.messages.extensions.markAllConversationsRead
 import org.fossify.messages.extensions.removeAllArchivedConversations
 import org.fossify.messages.helpers.THREAD_ID
 import org.fossify.messages.helpers.THREAD_TITLE
+import org.fossify.messages.helpers.isSavedMessagesThreadId
+import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.models.Conversation
 import org.fossify.messages.models.Events
 import org.greenrobot.eventbus.EventBus
@@ -29,6 +33,7 @@ import org.greenrobot.eventbus.ThreadMode
 
 class ArchivedConversationsActivity : SimpleActivity() {
     private var bus: EventBus? = null
+    private var currConversations = ArrayList<Conversation>()
     private val binding by viewBinding(ActivityArchivedConversationsBinding::inflate)
 
     @SuppressLint("InlinedApi")
@@ -61,6 +66,7 @@ class ArchivedConversationsActivity : SimpleActivity() {
         binding.archiveToolbar.inflateMenu(R.menu.archive_menu)
         binding.archiveToolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.mark_all_read_archive -> markAllAsRead()
                 R.id.empty_archive -> removeAll()
                 else -> return@setOnMenuItemClickListener false
             }
@@ -70,7 +76,22 @@ class ArchivedConversationsActivity : SimpleActivity() {
 
     private fun updateOptionsMenu(conversations: ArrayList<Conversation>) {
         binding.archiveToolbar.menu.apply {
+            findItem(R.id.mark_all_read_archive).isVisible = conversations.any { !it.read }
             findItem(R.id.empty_archive).isVisible = conversations.isNotEmpty()
+        }
+    }
+
+    private fun markAllAsRead() {
+        ensureBackgroundThread {
+            try {
+                markAllConversationsRead(currConversations.filterNot { isSavedMessagesThreadId(it.threadId) })
+            } catch (_: Exception) {
+            }
+            refreshConversations()
+            runOnUiThread {
+                toast(R.string.all_conversations_marked_read)
+                loadArchivedConversations()
+            }
         }
     }
 
@@ -128,6 +149,7 @@ class ArchivedConversationsActivity : SimpleActivity() {
     }
 
     private fun setupConversations(conversations: ArrayList<Conversation>) {
+        currConversations = conversations
         val sortedConversations = conversations.sortedWith(
             compareByDescending<Conversation> { config.pinnedConversations.contains(it.threadId.toString()) }
                 .thenByDescending { it.date }

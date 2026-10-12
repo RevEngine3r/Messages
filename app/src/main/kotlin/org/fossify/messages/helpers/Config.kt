@@ -166,4 +166,19 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(SKIP_DEFAULT_APP_REQUIREMENT, false)
         set(skipDefaultAppRequirement) = prefs.edit()
             .putBoolean(SKIP_DEFAULT_APP_REQUIREMENT, skipDefaultAppRequirement).apply()
+
+    var detectOtpMessages: Boolean
+        get() = prefs.getBoolean(DETECT_OTP_MESSAGES, false)
+        set(detectOtpMessages) = prefs.edit()
+            .putBoolean(DETECT_OTP_MESSAGES, detectOtpMessages).apply()
+
+    var enableSavedMessages: Boolean
+        get() = prefs.getBoolean(ENABLE_SAVED_MESSAGES, false)
+        set(enableSavedMessages) = prefs.edit()
+            .putBoolean(ENABLE_SAVED_MESSAGES, enableSavedMessages).apply()
+
+    var autoColorTheme: Boolean
+        get() = prefs.getBoolean(AUTO_COLOR_THEME, false)
+        set(autoColorTheme) = prefs.edit()
+            .putBoolean(AUTO_COLOR_THEME, autoColorTheme).apply()
 }
