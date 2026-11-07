@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
+import java.time.LocalDateTime
 
 plugins {
     alias(libs.plugins.android)
@@ -23,9 +24,18 @@ fun hasSigningVars(): Boolean {
             && providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull != null
 }
 
+// Date-time based versioning, generated automatically at build time.
+// versionCode = yyMMddHHmm (minute precision, within the 32-bit int limit, increases monotonically).
+val buildDateTime: LocalDateTime = LocalDateTime.now()
+val generatedVersionCode: Int = with(buildDateTime) {
+    (year % 100) * 1000000 + monthValue * 10000 + dayOfMonth * 100 + hour * 100 + minute
+}
+val generatedVersionName: String = with(buildDateTime) {
+    "%04d.%02d.%02d.%02d%02d".format(year, monthValue, dayOfMonth, hour, minute)
+}
+
 base {
-    val versionCode = project.property("VERSION_CODE").toString().toInt()
-    archivesName = "messages-$versionCode"
+    archivesName = "messages-$generatedVersionCode"
 }
 
 android {
@@ -35,8 +45,8 @@ android {
         applicationId = project.property("APP_ID").toString()
         minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
         targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
-        versionName = project.property("VERSION_NAME").toString()
-        versionCode = project.property("VERSION_CODE").toString().toInt()
+        versionName = generatedVersionName
+        versionCode = generatedVersionCode
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
