@@ -17,6 +17,9 @@ interface OtpDao {
     @Query("SELECT COUNT(*) FROM otp_messages")
     fun getCount(): Int
 
+    @Query("DELETE FROM otp_messages WHERE date < :beforeDate")
+    fun deleteExpired(beforeDate: Long): Int
+
     @Query("DELETE FROM otp_messages WHERE id = :id")
     fun delete(id: Long)
 

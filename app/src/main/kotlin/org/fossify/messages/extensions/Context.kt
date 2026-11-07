@@ -60,6 +60,7 @@ import org.fossify.messages.helpers.MESSAGES_LIMIT
 import org.fossify.messages.helpers.MessagingCache
 import org.fossify.messages.helpers.NotificationHelper
 import org.fossify.messages.helpers.OTP_ADDRESS
+import org.fossify.messages.helpers.OTP_MESSAGE_EXPIRY_TIMESPAN
 import org.fossify.messages.helpers.OTP_THREAD_ID
 import org.fossify.messages.helpers.SAVED_MESSAGES_ADDRESS
 import org.fossify.messages.helpers.SAVED_MESSAGES_THREAD_ID
@@ -1291,20 +1292,39 @@ fun Context.removeOtpConversation() {
     conversationsDB.deleteThreadId(OTP_THREAD_ID)
 }
 
-// refresh the snippet, sender and date of the virtual OTP row after a code is detected
-fun Context.updateOtpConversation(otp: OtpMessage) {
+// refresh the snippet, sender and date of the virtual OTP row; a null otp empties the snippet,
+// so that the row falls back to the italic "empty" placeholder in the main list
+fun Context.updateOtpConversation(otp: OtpMessage?) {
     try {
         val conversation = conversationsDB.getConversationWithThreadId(OTP_THREAD_ID)
             ?: getNewOtpConversation()
 
         conversationsDB.insertOrUpdate(
             conversation.copy(
-                snippet = "${otp.sender}: ${otp.code}",
-                date = (otp.date / 1000).toInt(),
+                snippet = otp?.let { "${it.sender}: ${it.code}" } ?: "",
+                date = otp?.let { (it.date / 1000).toInt() } ?: conversation.date,
                 read = true,
                 unreadCount = 0,
             )
         )
+    } catch (_: Exception) {
+    }
+}
+
+// drop detected OTP messages older than one day, called at every app launch
+fun Context.removeExpiredOtpMessages() {
+    try {
+        val deletedCount = otpDB.deleteExpired(System.currentTimeMillis() - OTP_MESSAGE_EXPIRY_TIMESPAN)
+        if (deletedCount > 0) {
+            ensureBackgroundThread {
+                try {
+                    updateOtpConversation(otpDB.getAll().maxByOrNull { it.date })
+                } catch (_: Exception) {
+                    updateOtpConversation(null)
+                }
+                refreshConversations()
+            }
+        }
     } catch (_: Exception) {
     }
 }

@@ -192,6 +192,7 @@
     <string name="show_otp_messages">Show OTP messages</string>
     <string name="no_otp_messages">No OTP messages have been detected</string>
     <string name="otp_messages_placeholder">Tap to view detected OTP codes</string>
+    <string name="otp_messages_empty">empty</string>
     <string name="copy_code">Copy code</string>
     <string name="copy_otp">Copy OTP</string>
     <string name="otp_copied">OTP code copied to clipboard</string>

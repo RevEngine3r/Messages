@@ -67,6 +67,9 @@ const val OTP_THREAD_ID = -2L
 const val OTP_ADDRESS = "0000000002"
 fun isOtpThreadId(threadId: Long) = threadId == OTP_THREAD_ID
 
+// detected OTP messages older than this are removed at every app launch
+const val OTP_MESSAGE_EXPIRY_TIMESPAN = 24 * 60 * 60 * 1000L
+
 private const val PATH = "org.fossify.org.fossify.messages.action."
 const val MARK_AS_READ = PATH + "mark_as_read"
 const val REPLY = PATH + "reply"

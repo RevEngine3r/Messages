@@ -15,8 +15,10 @@ import org.fossify.messages.R
 import org.fossify.messages.adapters.OtpMessagesAdapter
 import org.fossify.messages.databinding.ActivityOtpMessagesBinding
 import org.fossify.messages.extensions.otpDB
+import org.fossify.messages.extensions.updateOtpConversation
 import org.fossify.messages.helpers.THREAD_ID
 import org.fossify.messages.helpers.THREAD_TITLE
+import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.models.OtpMessage
 
 class OtpMessagesActivity : SimpleActivity() {
@@ -133,6 +135,7 @@ class OtpMessagesActivity : SimpleActivity() {
         ) {
             ensureBackgroundThread {
                 otpDB.delete(item.id!!)
+                refreshOtpConversation()
                 runOnUiThread {
                     loadOtpMessages()
                 }
@@ -149,10 +152,21 @@ class OtpMessagesActivity : SimpleActivity() {
         ) {
             ensureBackgroundThread {
                 otpDB.deleteAll()
+                refreshOtpConversation()
                 runOnUiThread {
                     loadOtpMessages()
                 }
             }
         }
+    }
+
+    // keep the snippet of the virtual OTP row in the main list in sync with the current list
+    private fun refreshOtpConversation() {
+        try {
+            updateOtpConversation(otpDB.getAll().maxByOrNull { it.date })
+        } catch (_: Exception) {
+            updateOtpConversation(null)
+        }
+        refreshConversations()
     }
 }

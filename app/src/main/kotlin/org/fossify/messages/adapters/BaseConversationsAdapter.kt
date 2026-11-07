@@ -26,6 +26,7 @@ import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.databinding.ItemConversationBinding
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.getAllDrafts
+import org.fossify.messages.helpers.isOtpThreadId
 import org.fossify.messages.models.Conversation
 
 @Suppress("LeakingThis")
@@ -182,9 +183,19 @@ abstract class BaseConversationsAdapter(
                 conversationBodyShort.alpha = 0.7f
                 if (conversation.isScheduled) Typeface.ITALIC else Typeface.NORMAL
             }
+
+            // the virtual OTP row has no snippet once its list gets emptied, show a placeholder instead
+            val isOtpEmpty = conversation.snippet.isEmpty() && isOtpThreadId(conversation.threadId)
+
+            conversationBodyShort.apply {
+                if (isOtpEmpty) {
+                    text = context.getString(org.fossify.messages.R.string.otp_messages_empty)
+                }
+            }
+
             val customTypeface = FontHelper.getTypeface(activity)
             conversationAddress.setTypeface(customTypeface, style)
-            conversationBodyShort.setTypeface(customTypeface, style)
+            conversationBodyShort.setTypeface(customTypeface, if (isOtpEmpty) Typeface.ITALIC else style)
             conversationDate.setTypeface(customTypeface, style)
 
             arrayListOf(conversationAddress, conversationBodyShort, conversationDate).forEach {
