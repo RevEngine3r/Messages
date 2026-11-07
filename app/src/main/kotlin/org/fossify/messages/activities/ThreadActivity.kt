@@ -1,7 +1,6 @@
 package org.fossify.messages.activities
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.AlarmManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -37,6 +36,8 @@ import android.widget.LinearLayout
 import android.widget.LinearLayout.LayoutParams
 import android.widget.RelativeLayout
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -99,6 +100,7 @@ import org.fossify.commons.helpers.SimpleContactsHelper
 import org.fossify.commons.helpers.VcfExporter
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isSPlus
+import org.fossify.commons.helpers.isTiramisuPlus
 import org.fossify.commons.models.PhoneNumber
 import org.fossify.commons.models.RadioItem
 import org.fossify.commons.models.SimpleContact
@@ -159,19 +161,10 @@ import org.fossify.messages.extensions.updateLastConversationMessage
 import org.fossify.messages.extensions.updateSavedMessagesConversation
 import org.fossify.messages.extensions.updateScheduledMessagesThreadId
 import org.fossify.messages.helpers.AudioPlayerManager
-import org.fossify.messages.helpers.CAPTURE_AUDIO_INTENT
-import org.fossify.messages.helpers.CAPTURE_PHOTO_INTENT
-import org.fossify.messages.helpers.CAPTURE_VIDEO_INTENT
 import org.fossify.messages.helpers.FILE_SIZE_NONE
 import org.fossify.messages.helpers.IS_LAUNCHED_FROM_SHORTCUT
 import org.fossify.messages.helpers.IS_RECYCLE_BIN
 import org.fossify.messages.helpers.MESSAGES_LIMIT
-import org.fossify.messages.helpers.PICK_CONTACT_INTENT
-import org.fossify.messages.helpers.PICK_DOCUMENT_INTENT
-import org.fossify.messages.helpers.PICK_PHOTO_INTENT
-import org.fossify.messages.helpers.PICK_SAVE_DIR_INTENT
-import org.fossify.messages.helpers.PICK_SAVE_FILE_INTENT
-import org.fossify.messages.helpers.PICK_VIDEO_INTENT
 import org.fossify.messages.helpers.SEARCHED_MESSAGE_ID
 import org.fossify.messages.helpers.THREAD_ATTACHMENT_URI
 import org.fossify.messages.helpers.THREAD_ATTACHMENT_URIS
@@ -237,6 +230,57 @@ class ThreadActivity : SimpleActivity() {
     private lateinit var scheduledDateTime: DateTime
 
     private var isAttachmentPickerVisible = false
+
+    // takes an image with an external camera app, the file is already known before the launch
+    private val capturePhotoLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            messageToResend = null
+            val capturedUri = capturedImageUri
+            if (capturedUri != null) {
+                addAttachment(capturedUri)
+            }
+        }
+    }
+
+    // images, videos, audio clips and files, picked either from a picker or an external recorder
+    private val attachmentPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            messageToResend = null
+            val uri = result.data?.data
+            if (uri != null) {
+                addAttachment(uri)
+            }
+        }
+    }
+
+    private val contactPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            messageToResend = null
+            val uri = result.data?.data
+            if (uri != null) {
+                addContactAttachment(uri)
+            }
+        }
+    }
+
+    // both the single file and the folder destinations return the uri the attachments are saved to
+    private val saveAttachmentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            messageToResend = null
+            val destinationUri = result.data?.data
+            if (destinationUri != null) {
+                saveAttachments(destinationUri)
+            }
+        }
+    }
 
     private val binding by viewBinding(ActivityThreadBinding::inflate)
 
@@ -431,29 +475,6 @@ class ThreadActivity : SimpleActivity() {
         }
 
         return true
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
-        super.onActivityResult(requestCode, resultCode, resultData)
-        if (resultCode != Activity.RESULT_OK) return
-        val data = resultData?.data
-        messageToResend = null
-
-        if (requestCode == CAPTURE_PHOTO_INTENT && capturedImageUri != null) {
-            addAttachment(capturedImageUri!!)
-        } else if (data != null) {
-            when (requestCode) {
-                CAPTURE_VIDEO_INTENT,
-                PICK_DOCUMENT_INTENT,
-                CAPTURE_AUDIO_INTENT,
-                PICK_PHOTO_INTENT,
-                PICK_VIDEO_INTENT -> addAttachment(data)
-
-                PICK_CONTACT_INTENT -> addContactAttachment(data)
-                PICK_SAVE_FILE_INTENT -> saveAttachments(resultData)
-                PICK_SAVE_DIR_INTENT -> saveAttachments(resultData)
-            }
-        }
     }
 
     private fun setupCachedMessages(callback: () -> Unit) {
@@ -1000,9 +1021,9 @@ class ThreadActivity : SimpleActivity() {
             if (intent.extras?.containsKey(THREAD_ATTACHMENT_URI) == true) {
                 val uri = intent.getStringExtra(THREAD_ATTACHMENT_URI)!!.toUri()
                 addAttachment(uri)
-            } else if (intent.extras?.containsKey(THREAD_ATTACHMENT_URIS) == true) {
-                (intent.getSerializableExtra(THREAD_ATTACHMENT_URIS) as? ArrayList<Uri>)?.forEach {
-                    addAttachment(it)
+            } else {
+                intent.getStringArrayListExtra(THREAD_ATTACHMENT_URIS)?.forEach {
+                    addAttachment(it.toUri())
                 }
             }
             scrollToBottomFab.setOnClickListener {
@@ -1121,8 +1142,9 @@ class ThreadActivity : SimpleActivity() {
         if (availableSIMs.size > 1) {
             availableSIMs.forEachIndexed { index, subscriptionInfo ->
                 var label = subscriptionInfo.displayName?.toString() ?: ""
-                if (subscriptionInfo.number?.isNotEmpty() == true) {
-                    label += " (${subscriptionInfo.number})"
+                val number = getSubscriptionNumber(subscriptionInfo)
+                if (!number.isNullOrEmpty()) {
+                    label += " ($number)"
                 }
                 val simCard = SIMCard(index + 1, subscriptionInfo.subscriptionId, label)
                 availableSIMCards.add(simCard)
@@ -1168,6 +1190,22 @@ class ThreadActivity : SimpleActivity() {
             } catch (e: Exception) {
                 showErrorToast(e)
             }
+        }
+    }
+
+    // SubscriptionInfo.number was deprecated in Android 13, the number has to be fetched from SubscriptionManager there
+    @SuppressLint("MissingPermission")
+    private fun getSubscriptionNumber(subscriptionInfo: SubscriptionInfo): String? {
+        return try {
+            if (isTiramisuPlus()) {
+                subscriptionManagerCompat().getPhoneNumber(subscriptionInfo.subscriptionId)
+            } else {
+                @Suppress("DEPRECATION")
+                subscriptionInfo.number
+            }
+        } catch (_: Exception) {
+            // the number is not always accessible, even with the READ_PHONE_STATE permission granted
+            null
         }
     }
 
@@ -1437,13 +1475,13 @@ class ThreadActivity : SimpleActivity() {
     }
 
     private fun launchActivityForResult(
+        launcher: ActivityResultLauncher<Intent>,
         intent: Intent,
-        requestCode: Int,
         @StringRes error: Int = org.fossify.commons.R.string.no_app_found,
     ) {
         hideKeyboard()
         try {
-            startActivityForResult(intent, requestCode)
+            launcher.launch(intent)
         } catch (e: ActivityNotFoundException) {
             showErrorToast(getString(error))
         } catch (e: Exception) {
@@ -1465,32 +1503,32 @@ class ThreadActivity : SimpleActivity() {
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
             putExtra(MediaStore.EXTRA_OUTPUT, capturedImageUri)
         }
-        launchActivityForResult(intent, CAPTURE_PHOTO_INTENT)
+        launchActivityForResult(capturePhotoLauncher, intent)
     }
 
     private fun launchCaptureVideoIntent() {
         val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-        launchActivityForResult(intent, CAPTURE_VIDEO_INTENT)
+        launchActivityForResult(attachmentPickerLauncher, intent)
     }
 
     private fun launchCaptureAudioIntent() {
         val intent = Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
-        launchActivityForResult(intent, CAPTURE_AUDIO_INTENT)
+        launchActivityForResult(attachmentPickerLauncher, intent)
     }
 
-    private fun launchGetContentIntent(mimeTypes: Array<String>, requestCode: Int) {
+    private fun launchGetContentIntent(mimeTypes: Array<String>) {
         Intent(Intent.ACTION_GET_CONTENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
             putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
-            launchActivityForResult(this, requestCode)
+            launchActivityForResult(attachmentPickerLauncher, this)
         }
     }
 
     private fun launchPickContactIntent() {
         Intent(Intent.ACTION_PICK).apply {
             type = ContactsContract.Contacts.CONTENT_TYPE
-            launchActivityForResult(this, PICK_CONTACT_INTENT)
+            launchActivityForResult(contactPickerLauncher, this)
         }
     }
 
@@ -1579,11 +1617,10 @@ class ThreadActivity : SimpleActivity() {
         checkSendMessageAvailability()
     }
 
-    private fun saveAttachments(resultData: Intent) {
+    private fun saveAttachments(destinationUri: Uri) {
         applicationContext.contentResolver.takePersistableUriPermission(
-            resultData.data!!, FLAG_GRANT_READ_URI_PERMISSION or FLAG_GRANT_WRITE_URI_PERMISSION
+            destinationUri, FLAG_GRANT_READ_URI_PERMISSION or FLAG_GRANT_WRITE_URI_PERMISSION
         )
-        val destinationUri = resultData.data ?: return
         ensureBackgroundThread {
             try {
                 if (DocumentsContract.isTreeUri(destinationUri)) {
@@ -1598,7 +1635,7 @@ class ThreadActivity : SimpleActivity() {
                         copyToUri(src = attachment.getUri(), dst = documentFile.uri)
                     }
                 } else {
-                    copyToUri(pendingAttachmentsToSave!!.first().getUri(), resultData.data!!)
+                    copyToUri(pendingAttachmentsToSave!!.first().getUri(), destinationUri)
                 }
 
                 toast(org.fossify.commons.R.string.file_saved)
@@ -1902,8 +1939,8 @@ class ThreadActivity : SimpleActivity() {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 putExtra(Intent.EXTRA_TITLE, attachment.uriString.split("/").last())
                 launchActivityForResult(
+                    launcher = saveAttachmentLauncher,
                     intent = this,
-                    requestCode = PICK_SAVE_FILE_INTENT,
                     error = org.fossify.commons.R.string.system_service_disabled
                 )
             }
@@ -1911,8 +1948,8 @@ class ThreadActivity : SimpleActivity() {
             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                 addCategory(Intent.CATEGORY_DEFAULT)
                 launchActivityForResult(
+                    launcher = saveAttachmentLauncher,
                     intent = this,
-                    requestCode = PICK_SAVE_DIR_INTENT,
                     error = org.fossify.commons.R.string.system_service_disabled
                 )
             }
@@ -2192,10 +2229,10 @@ class ThreadActivity : SimpleActivity() {
         ).forEach { it.setTextColor(textColor) }
 
         choosePhoto.setOnClickListener {
-            launchGetContentIntent(arrayOf("image/*"), PICK_PHOTO_INTENT)
+            launchGetContentIntent(arrayOf("image/*"))
         }
         chooseVideo.setOnClickListener {
-            launchGetContentIntent(arrayOf("video/*"), PICK_VIDEO_INTENT)
+            launchGetContentIntent(arrayOf("video/*"))
         }
         takePhoto.setOnClickListener {
             launchCapturePhotoIntent()
@@ -2207,7 +2244,7 @@ class ThreadActivity : SimpleActivity() {
             launchCaptureAudioIntent()
         }
         pickFile.setOnClickListener {
-            launchGetContentIntent(arrayOf("*/*"), PICK_DOCUMENT_INTENT)
+            launchGetContentIntent(arrayOf("*/*"))
         }
         pickContact.setOnClickListener {
             launchPickContactIntent()
@@ -2253,7 +2290,7 @@ class ThreadActivity : SimpleActivity() {
     }
 
     private fun getBottomBarColor() = if (isDynamicTheme()) {
-        resources.getColor(org.fossify.commons.R.color.you_bottom_bar_color)
+        getColor(org.fossify.commons.R.color.you_bottom_bar_color)
     } else {
         getBottomNavigationBackgroundColor()
     }

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.core.os.BundleCompat
 import com.google.gson.Gson
 import com.reddit.indicatorfastscroll.FastScrollItemIndicator
 import org.fossify.commons.extensions.applyColorFilter
@@ -269,21 +270,29 @@ class NewConversationActivity : SimpleActivity() {
         hideKeyboard()
         val numbers = phoneNumber.split(";").toSet()
         val number = if (numbers.size == 1) phoneNumber else Gson().toJson(numbers)
+        val sharedExtras = intent.extras
         Intent(this, ThreadActivity::class.java).apply {
             putExtra(THREAD_ID, getThreadId(numbers))
             putExtra(THREAD_TITLE, name)
             putExtra(THREAD_TEXT, body.ifEmpty { intent.getStringExtra(Intent.EXTRA_TEXT) })
             putExtra(THREAD_NUMBER, number)
 
-            if (intent.action == Intent.ACTION_SEND && intent.extras?.containsKey(Intent.EXTRA_STREAM) == true) {
-                val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-                putExtra(THREAD_ATTACHMENT_URI, uri?.toString())
-            } else if (intent.action == Intent.ACTION_SEND_MULTIPLE && intent.extras?.containsKey(
-                    Intent.EXTRA_STREAM
-                ) == true
-            ) {
-                val uris = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-                putExtra(THREAD_ATTACHMENT_URIS, uris)
+            // the attachments shared by other apps are forwarded to ThreadActivity
+            when (intent.action) {
+                Intent.ACTION_SEND -> {
+                    val uri = sharedExtras?.let {
+                        BundleCompat.getParcelable(it, Intent.EXTRA_STREAM, Uri::class.java)
+                    }
+                    putExtra(THREAD_ATTACHMENT_URI, uri?.toString())
+                }
+
+                Intent.ACTION_SEND_MULTIPLE -> {
+                    val uris = sharedExtras?.let {
+                        BundleCompat.getParcelableArrayList(it, Intent.EXTRA_STREAM, Uri::class.java)
+                    }
+                    // they are passed on as strings, ThreadActivity would need a deprecated getter otherwise
+                    putStringArrayListExtra(THREAD_ATTACHMENT_URIS, uris?.mapTo(ArrayList()) { it.toString() })
+                }
             }
 
             startActivity(this)

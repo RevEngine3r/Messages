@@ -11,6 +11,7 @@ const val THREAD_ID = "thread_id"
 const val THREAD_TITLE = "thread_title"
 const val THREAD_TEXT = "thread_text"
 const val THREAD_NUMBER = "thread_number"
+// attachments forwarded from NewConversationActivity to ThreadActivity, both extras hold uri strings
 const val THREAD_ATTACHMENT_URI = "thread_attachment_uri"
 const val THREAD_ATTACHMENT_URIS = "thread_attachment_uris"
 const val SEARCHED_MESSAGE_ID = "searched_message_id"
@@ -112,17 +113,6 @@ const val FILE_SIZE_2_MB = 2_097_152L
 
 const val MESSAGES_LIMIT = 50
 const val MAX_MESSAGE_LENGTH = 5000
-
-// intent launch request codes
-const val PICK_PHOTO_INTENT = 42
-const val PICK_VIDEO_INTENT = 49
-const val PICK_SAVE_FILE_INTENT = 43
-const val CAPTURE_PHOTO_INTENT = 44
-const val CAPTURE_VIDEO_INTENT = 45
-const val CAPTURE_AUDIO_INTENT = 46
-const val PICK_DOCUMENT_INTENT = 47
-const val PICK_CONTACT_INTENT = 48
-const val PICK_SAVE_DIR_INTENT = 50
 
 const val BLOCKED_KEYWORDS_EXPORT_DELIMITER = ","
 const val BLOCKED_KEYWORDS_EXPORT_EXTENSION = ".txt"
