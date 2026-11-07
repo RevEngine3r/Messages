@@ -1247,7 +1247,7 @@ class ThreadActivity : SimpleActivity() {
 
     private fun archiveConversation() {
         ensureBackgroundThread {
-            updateConversationArchivedStatus(threadId, true)
+            updateConversationArchivedStatus(threadId, true, userInitiated = true)
             runOnUiThread {
                 refreshConversations()
                 finish()
@@ -1257,7 +1257,8 @@ class ThreadActivity : SimpleActivity() {
 
     private fun unarchiveConversation() {
         ensureBackgroundThread {
-            updateConversationArchivedStatus(threadId, false)
+            // remember the choice, otherwise the archiving of unknown contacts pulls it right back
+            updateConversationArchivedStatus(threadId, false, userInitiated = true)
             runOnUiThread {
                 refreshConversations()
                 finish()
@@ -1787,7 +1788,8 @@ class ThreadActivity : SimpleActivity() {
         }
         messagesDB.insertOrUpdate(message)
         if (shouldUnarchive() && !isSavedMessagesThreadId(message.threadId)) {
-            updateConversationArchivedStatus(message.threadId, false)
+            // replying is a deliberate action, keep the conversation in the inbox afterwards
+            updateConversationArchivedStatus(message.threadId, false, userInitiated = true)
             refreshConversations()
         }
     }

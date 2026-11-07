@@ -162,6 +162,24 @@ class Config(context: Context) : BaseConfig(context) {
         set(silentArchivedContacts) = prefs.edit()
             .putBoolean(SILENT_ARCHIVED_CONTACTS, silentArchivedContacts).apply()
 
+    // conversations the user explicitly unarchived, the automatic archiving of unknown contacts
+    // is not allowed to pull them back into the archive
+    var userUnarchivedConversations: Set<String>
+        get() = prefs.getStringSet(USER_UNARCHIVED_CONVERSATIONS, HashSet<String>())!!
+        set(userUnarchivedConversations) = prefs.edit()
+            .putStringSet(USER_UNARCHIVED_CONVERSATIONS, userUnarchivedConversations).apply()
+
+    fun isConversationUnarchivedByUser(threadId: Long) =
+        userUnarchivedConversations.contains(threadId.toString())
+
+    fun addUserUnarchivedConversationByThreadId(threadId: Long) {
+        userUnarchivedConversations = userUnarchivedConversations.plus(threadId.toString())
+    }
+
+    fun removeUserUnarchivedConversationByThreadId(threadId: Long) {
+        userUnarchivedConversations = userUnarchivedConversations.minus(threadId.toString())
+    }
+
     var skipDefaultAppRequirement: Boolean
         get() = prefs.getBoolean(SKIP_DEFAULT_APP_REQUIREMENT, false)
         set(skipDefaultAppRequirement) = prefs.edit()

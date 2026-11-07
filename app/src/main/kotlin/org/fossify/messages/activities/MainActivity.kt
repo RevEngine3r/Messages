@@ -385,6 +385,7 @@ class MainActivity : SimpleActivity() {
                 val isConversationDeleted = !conversations.map { it.threadId }.contains(threadId)
                 if (isConversationDeleted && !isTemporaryThread && !isSavedMessagesThreadId(threadId) && !isOtpThreadId(threadId)) {
                     conversationsDB.deleteThreadId(threadId)
+                    config.removeUserUnarchivedConversationByThreadId(threadId)
                 }
 
                 val newConversation =

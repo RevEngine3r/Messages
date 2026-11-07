@@ -905,6 +905,10 @@ fun Context.deleteConversation(threadId: Long) {
     messagesDB.deleteThreadMessages(threadId)
     MessagingCache.participantsCache.remove(threadId)
 
+    if (config.isConversationUnarchivedByUser(threadId)) {
+        config.removeUserUnarchivedConversationByThreadId(threadId)
+    }
+
     if (config.customNotifications.contains(threadId.toString())) {
         config.removeCustomNotificationsByThreadId(threadId)
         notificationManager.deleteNotificationChannel(threadId.toString())
@@ -968,7 +972,11 @@ fun Context.restoreMessageFromRecycleBin(id: Long) {
     }
 }
 
-fun Context.updateConversationArchivedStatus(threadId: Long, archived: Boolean) {
+fun Context.updateConversationArchivedStatus(
+    threadId: Long,
+    archived: Boolean,
+    userInitiated: Boolean = false,
+) {
     val uri = Threads.CONTENT_URI
     val values = ContentValues().apply {
         put(Threads.ARCHIVED, archived)
@@ -993,6 +1001,15 @@ fun Context.updateConversationArchivedStatus(threadId: Long, archived: Boolean) 
     } else {
         conversationsDB.unarchive(threadId)
     }
+
+    // remember an explicit choice of the user, the automatic archiving must not override it
+    if (userInitiated) {
+        if (archived) {
+            config.removeUserUnarchivedConversationByThreadId(threadId)
+        } else {
+            config.addUserUnarchivedConversationByThreadId(threadId)
+        }
+    }
 }
 
 fun Context.archiveUnknownConversations() {
@@ -1013,6 +1030,7 @@ fun Context.archiveUnknownConversations() {
             .filterNot { it.isScheduled }
             .filterNot { isSavedMessagesThreadId(it.threadId) }
             .filterNot { isOtpThreadId(it.threadId) }
+            .filterNot { config.isConversationUnarchivedByUser(it.threadId) }
             .filter { isUnknownConversation(it, privateCursor, unknownStatuses) }
             .forEach { runCatching { updateConversationArchivedStatus(it.threadId, true) } }
     }
@@ -1020,6 +1038,15 @@ fun Context.archiveUnknownConversations() {
 
 // archive conversations of senders which are not in the contacts, otherwise unarchive them if allowed
 fun Context.updateArchivedStatusAtIncomingMessage(threadId: Long, address: String) {
+    if (config.isConversationUnarchivedByUser(threadId)) {
+        // the user explicitly moved this conversation to the inbox, incoming messages only
+        // restore that state, they never send it back to the archive
+        if (isConversationArchived(threadId)) {
+            runCatching { updateConversationArchivedStatus(threadId, false) }
+        }
+        return
+    }
+
     if (config.archiveUnknownContacts && config.isArchiveAvailable) {
         val isUnknown = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)
             .use { isUnknownContact(address, it) }

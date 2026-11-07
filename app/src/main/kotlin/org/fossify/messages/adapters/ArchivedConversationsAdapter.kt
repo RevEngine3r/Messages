@@ -67,7 +67,8 @@ class ArchivedConversationsAdapter(
         ensureBackgroundThread {
             val conversationsToUnarchive = currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
             conversationsToUnarchive.forEach {
-                activity.updateConversationArchivedStatus(it.threadId, false)
+                // remember the choice, otherwise the archiving of unknown contacts pulls it right back
+                activity.updateConversationArchivedStatus(it.threadId, false, userInitiated = true)
             }
 
             removeConversationsFromList(conversationsToUnarchive)

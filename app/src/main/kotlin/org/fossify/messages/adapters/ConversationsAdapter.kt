@@ -167,7 +167,8 @@ class ConversationsAdapter(
         val conversationsToRemove =
             currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
         conversationsToRemove.forEach {
-            activity.updateConversationArchivedStatus(it.threadId, true)
+            // an explicit archive overrides a previous unarchiving of the same conversation
+            activity.updateConversationArchivedStatus(it.threadId, true, userInitiated = true)
             activity.notificationManager.cancel(it.threadId.hashCode())
         }
 
