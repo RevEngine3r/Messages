@@ -84,7 +84,7 @@ class AttachmentsAdapter(
 
     override fun onBindViewHolder(holder: AttachmentsViewHolder, position: Int) {
         val attachment = getItem(position)
-        holder.bindView { binding, _ ->
+        holder.bindView { binding ->
             when (attachment.viewType) {
                 ATTACHMENT_DOCUMENT -> {
                     (binding as ItemAttachmentDocumentPreviewBinding).setupDocumentPreview(
@@ -252,8 +252,8 @@ class AttachmentsAdapter(
     }
 
     inner class AttachmentsViewHolder(val binding: ViewBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bindView(callback: (binding: ViewBinding, adapterPosition: Int) -> Unit) {
-            callback(binding, adapterPosition)
+        fun bindView(callback: (binding: ViewBinding) -> Unit) {
+            callback(binding)
         }
     }
 }

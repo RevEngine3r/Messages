@@ -1480,7 +1480,7 @@ fun Context.getNotificationBitmap(photoUri: String): Bitmap? {
             .load(photoUri)
             .apply(options)
             .apply(RequestOptions.circleCropTransform())
-            .into(size, size)
+            .submit(size, size)
             .get()
     } catch (_: Exception) {
         null

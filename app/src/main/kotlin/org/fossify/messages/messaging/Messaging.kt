@@ -18,7 +18,7 @@ import org.fossify.messages.messaging.SmsException.Companion.ERROR_PERSISTING_ME
 import org.fossify.messages.messaging.SmsException.Companion.ERROR_SENDING_MESSAGE
 import org.fossify.messages.models.Attachment
 
-@Deprecated("TODO: Move/rewrite messaging config code into the app.")
+// TODO: the Settings class still comes from the mmslib, rewrite the messaging config on top of the platform APIs.
 fun Context.getSendMessageSettings(): Settings {
     val settings = Settings()
     settings.useSystemSending = true

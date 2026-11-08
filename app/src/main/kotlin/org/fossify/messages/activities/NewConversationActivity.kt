@@ -142,7 +142,7 @@ class NewConversationActivity : SimpleActivity() {
         if (result != null && (result.first.isNotEmpty() || result.second.isNotEmpty())) {
             val (body, recipients) = result
             launchThreadActivity(
-                phoneNumber = URLDecoder.decode(recipients.replace("+", "%2b").trim()),
+                phoneNumber = URLDecoder.decode(recipients.replace("+", "%2b").trim(), "UTF-8"),
                 name = "",
                 body = body
             )

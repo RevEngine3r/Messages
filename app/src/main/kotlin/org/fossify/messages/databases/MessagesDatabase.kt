@@ -62,7 +62,9 @@ abstract class MessagesDatabase : RoomDatabase() {
                             klass = MessagesDatabase::class.java,
                             name = "conversations.db"
                         )
-                            .fallbackToDestructiveMigration()
+                            // the tables have no foreign keys between them, so dropping the ones on the
+                            // migration path alone is safe
+                            .fallbackToDestructiveMigration(dropAllTables = false)
                             .addMigrations(MIGRATION_1_2)
                             .addMigrations(MIGRATION_2_3)
                             .addMigrations(MIGRATION_3_4)

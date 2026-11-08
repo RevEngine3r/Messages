@@ -153,7 +153,7 @@ class MessagingUtils(val context: Context) {
         return SmsMessage.createFromPdu(pdu, format)
     }
 
-    @Deprecated("TODO: Move/rewrite MMS code into the app.")
+    // TODO: the mmslib Transaction still sends the message, rewrite MMS sending with the platform APIs.
     fun sendMmsMessage(
         text: String,
         addresses: List<String>,

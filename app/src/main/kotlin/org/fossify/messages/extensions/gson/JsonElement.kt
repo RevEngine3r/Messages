@@ -46,8 +46,9 @@ val JsonElement.optShort: Short?
 val JsonElement.optJsonNull: JsonNull?
     get() = safeConversion { asJsonNull }
 
+// getAsCharacter is deprecated for being misleading, it only returns the first character of the string value
 val JsonElement.optCharacter: Char?
-    get() = safeConversion { asCharacter }
+    get() = safeConversion { asString.firstOrNull() }
 
 private fun <T> JsonElement.safeConversion(converter: () -> T?): T? {
 
