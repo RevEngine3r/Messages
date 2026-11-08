@@ -44,3 +44,10 @@
 -keepclassmembers,allowobfuscation class ezvcard.parameter.* extends ezvcard.parameter.MediaTypeParameter {
     <init>(java.lang.String, java.lang.String, java.lang.String);
 }
+
+# The reprint library (via Fossify Commons) references the fingerprint API at runtime
+# only when available; the classes are not part of the compiled dependencies.
+-dontwarn android.hardware.fingerprint.FingerprintManager
+-dontwarn android.hardware.fingerprint.FingerprintManager$AuthenticationCallback
+-dontwarn android.hardware.fingerprint.FingerprintManager$AuthenticationResult
+-dontwarn android.hardware.fingerprint.FingerprintManager$CryptoObject

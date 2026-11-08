@@ -1,7 +1,7 @@
 [versions]
 #jetbrains
-kotlin = "2.4.20"
-kotlinxSerializationJson = "1.11.0"
+kotlin = "2.4.21"
+kotlinxSerializationJson = "1.12.0"
 #KSP
 ksp = "2.3.12"
 #Detekt
@@ -9,7 +9,7 @@ detekt = "1.23.8"
 #AndroidX
 androidx-constraintlayout = "2.2.2"
 androidx-swiperefreshlayout = "1.2.0"
-androidx-lifecycleprocess = "2.10.0"
+androidx-lifecycleprocess = "2.11.0"
 androidx-documentfile = "1.1.0"
 #Eventbus
 eventbus = "3.3.1"
@@ -20,10 +20,10 @@ commons = "7.1.3"
 mmslib = "1.0.1"
 indicator-fast-scroll = "4524cd0b61"
 #Gradle
-gradlePlugins-agp = "9.4.1"
+gradlePlugins-agp = "9.5.1"
 #build
-app-build-compileSDKVersion = "36"
-app-build-targetSDK = "36"
+app-build-compileSDKVersion = "37"
+app-build-targetSDK = "37"
 app-build-minimumSDK = "26"
 app-build-javaVersion = "VERSION_17"
 app-build-kotlinJVMTarget = "17"
