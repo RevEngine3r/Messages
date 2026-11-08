@@ -3,16 +3,30 @@ package org.fossify.messages.extensions.gson
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.internal.LinkedTreeMap
 import java.lang.reflect.Type
 import kotlin.math.ceil
 
 // https://stackoverflow.com/a/36529534/10552591
-class MapDeserializerDoubleAsIntFix : JsonDeserializer<Map<String, Any>?> {
+// the map values are nullable, because a json null is deserialized into a null entry
+class MapDeserializerDoubleAsIntFix : JsonDeserializer<Map<String, Any?>?> {
     @Throws(JsonParseException::class)
-    override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): Map<String, Any>? {
-        return read(json) as Map<String, Any>?
+    override fun deserialize(
+        json: JsonElement,
+        typeOfT: Type,
+        context: JsonDeserializationContext,
+    ): Map<String, Any?>? {
+        return if (json.isJsonNull) null else readObject(json.asJsonObject)
+    }
+
+    private fun readObject(obj: JsonObject): MutableMap<String, Any?> {
+        val map: MutableMap<String, Any?> = LinkedTreeMap()
+        for ((key, value) in obj.entrySet()) {
+            map[key] = read(value)
+        }
+        return map
     }
 
     fun read(element: JsonElement): Any? {
@@ -27,13 +41,7 @@ class MapDeserializerDoubleAsIntFix : JsonDeserializer<Map<String, Any>?> {
             }
 
             element.isJsonObject -> {
-                val map: MutableMap<String, Any?> = LinkedTreeMap()
-                val obj = element.asJsonObject
-                val entitySet = obj.entrySet()
-                for ((key, value) in entitySet) {
-                    map[key] = read(value)
-                }
-                return map
+                return readObject(element.asJsonObject)
             }
 
             element.isJsonPrimitive -> {
