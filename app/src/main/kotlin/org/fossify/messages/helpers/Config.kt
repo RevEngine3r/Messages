@@ -199,4 +199,11 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(AUTO_COLOR_THEME, false)
         set(autoColorTheme) = prefs.edit()
             .putBoolean(AUTO_COLOR_THEME, autoColorTheme).apply()
+
+    // installs made before the icon aliases were named after the app id never applied an icon color,
+    // the stored one is only re-applied once
+    var wasAppIconColorResynced: Boolean
+        get() = prefs.getBoolean(WAS_APP_ICON_COLOR_RESYNCED, false)
+        set(wasAppIconColorResynced) = prefs.edit()
+            .putBoolean(WAS_APP_ICON_COLOR_RESYNCED, wasAppIconColorResynced).apply()
 }

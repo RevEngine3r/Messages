@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - Fixed unarchived conversations being moved back into the archive when the archiving of unknown contacts is enabled
+- Fixed the launcher icon color not changing under a custom application id, the icon aliases are named after the app id, not the code namespace
 
 ## [1.10.1] - 2026-10-10
 ### Changed

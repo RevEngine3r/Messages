@@ -22,6 +22,7 @@ import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisible
 import org.fossify.commons.extensions.beVisibleIf
+import org.fossify.commons.extensions.checkAppIconColor
 import org.fossify.commons.extensions.checkAppSideloading
 import org.fossify.commons.extensions.checkWhatsNew
 import org.fossify.commons.extensions.convertToBitmap
@@ -112,6 +113,7 @@ class MainActivity : SimpleActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
         appLaunched(BuildConfig.APPLICATION_ID)
+        resyncAppIconColor()
         setupOptionsMenu()
         refreshMenuItems()
 
@@ -540,6 +542,19 @@ class MainActivity : SimpleActivity() {
         Intent(this, NewConversationActivity::class.java).apply {
             startActivity(this)
         }
+    }
+
+    // the colored launcher icons are activity aliases named after the app id by Commons; aliases of
+    // installs made before that naming was respected could never be toggled, so the color stored in
+    // the settings was never applied. Make Commons re-apply it, once, by clearing its bookkeeping
+    private fun resyncAppIconColor() {
+        if (config.wasAppIconColorResynced) {
+            return
+        }
+
+        config.wasAppIconColorResynced = true
+        config.lastIconColor = 0
+        checkAppIconColor()
     }
 
     @SuppressLint("NewApi")

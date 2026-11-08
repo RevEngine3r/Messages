@@ -56,6 +56,8 @@ const val SKIP_DEFAULT_APP_REQUIREMENT = "skip_default_app_requirement"
 const val DETECT_OTP_MESSAGES = "detect_otp_messages"
 const val ENABLE_SAVED_MESSAGES = "enable_saved_messages"
 const val AUTO_COLOR_THEME = "auto_color_theme"
+// one time re-application of the stored launcher icon color, see MainActivity.resyncAppIconColor
+const val WAS_APP_ICON_COLOR_RESYNCED = "was_app_icon_color_resynced"
 
 // virtual, local-only thread used by the Saved Messages feature (never interacts with the telephony provider)
 const val SAVED_MESSAGES_THREAD_ID = -1L

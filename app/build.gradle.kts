@@ -48,6 +48,13 @@ android {
         targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
         versionName = generatedVersionName
         versionCode = generatedVersionCode
+
+        // Commons builds the launcher activity-alias names of the colored icons as
+        // "<base applicationId>.activities.SplashActivity.<Color>", the base id being the applicationId
+        // with any ".debug" suffix removed. Component names come from APP_ID, not from the code namespace
+        // (APP_NAMESPACE), so the manifest has to spell them with this placeholder instead of a leading dot.
+        manifestPlaceholders["baseApplicationId"] = project.property("APP_ID").toString()
+
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
