@@ -1,3 +1,4 @@
+import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.konan.properties.Properties
@@ -149,6 +150,11 @@ detekt {
     allRules = false
 }
 
+tasks.withType<Detekt>().configureEach {
+    // detekt 1.x does not understand the JDK that runs Gradle, so analyse with the same jvm target the app compiles with
+    jvmTarget = libs.versions.app.build.kotlinJVMTarget.get()
+}
+
 dependencies {
     implementation(libs.fossify.commons)
     implementation(libs.eventbus)
@@ -162,5 +168,4 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.bundles.room)
     ksp(libs.androidx.room.compiler)
-    detektPlugins(libs.compose.detekt)
 }
